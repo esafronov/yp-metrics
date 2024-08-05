@@ -1,6 +1,6 @@
 package storage
 
 type Repositories interface {
-	Get(MetricName) interface{}
-	Insert(MetricName, interface{})
+	Get(MetricName) Metric
+	Insert(MetricName, Metric)
 }

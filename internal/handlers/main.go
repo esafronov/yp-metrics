@@ -103,26 +103,19 @@ func (h Main) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	metricType, _ := params["type"].(storage.MetricType)
 
 	metric := storageInstance.Get(metricName)
-
-	switch metricType {
-	case storage.MetricTypeGauge:
-		value, _ := params["value"].(float64)
-		metric := storageInstance.Get(metricName)
-		if metric != nil {
-			m, _ := metric.(*storage.MetricGauge)
-			m.UpdateValue(value)
-		} else {
+	if metric != nil {
+		metric.UpdateValue(params["value"])
+	} else {
+		switch metricType {
+		case storage.MetricTypeGauge:
+			value, _ := params["value"].(float64)
 			storageInstance.Insert(metricName, storage.NewMetricGauge(value))
-		}
-	case storage.MetricTypeCounter:
-		value, _ := params["value"].(int64)
-		if metric != nil {
-			m, _ := metric.(*storage.MetricCounter)
-			m.IncrementValue(value)
-		} else {
+		case storage.MetricTypeCounter:
+			value, _ := params["value"].(int64)
 			storageInstance.Insert(metricName, storage.NewMetricCounter(value))
 		}
 	}
+	storageInstance.Print()
 	res.Header().Add("Content-Type", "text/plain; charset=utf-8")
 	res.WriteHeader(http.StatusOK)
 }
