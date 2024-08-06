@@ -26,7 +26,7 @@ func (e ErrorPathValue) Error() string {
 	return "url path has wrong values"
 }
 
-func ParseUrl(p string) (map[string]interface{}, error) {
+func ParseURL(p string) (map[string]interface{}, error) {
 	params := make(map[string]interface{})
 
 	chunks := strings.Split(p, "/")
@@ -80,13 +80,13 @@ func (h Main) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return
 	}
-	contentType := req.Header.Values("Content-Type")
-	if len(contentType) == 0 || contentType[0] != "text/plain" {
+	ContentType := req.Header.Values("Content-Type")
+	if len(ContentType) == 0 || ContentType[0] != "text/plain" {
 		http.Error(res, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
 		return
 	}
 
-	params, err := ParseUrl(req.URL.Path)
+	params, err := ParseURL(req.URL.Path)
 
 	if err != nil {
 		switch err.(type) {
@@ -99,20 +99,20 @@ func (h Main) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	metricName, _ := params["name"].(storage.MetricName)
-	metricType, _ := params["type"].(storage.MetricType)
+	MetricName, _ := params["name"].(storage.MetricName)
+	MetricType, _ := params["type"].(storage.MetricType)
 
-	metric := storageInstance.Get(metricName)
+	metric := storageInstance.Get(MetricName)
 	if metric != nil {
 		metric.UpdateValue(params["value"])
 	} else {
-		switch metricType {
+		switch MetricType {
 		case storage.MetricTypeGauge:
 			value, _ := params["value"].(float64)
-			storageInstance.Insert(metricName, storage.NewMetricGauge(value))
+			storageInstance.Insert(MetricName, storage.NewMetricGauge(value))
 		case storage.MetricTypeCounter:
 			value, _ := params["value"].(int64)
-			storageInstance.Insert(metricName, storage.NewMetricCounter(value))
+			storageInstance.Insert(MetricName, storage.NewMetricCounter(value))
 		}
 	}
 	storageInstance.Print()
