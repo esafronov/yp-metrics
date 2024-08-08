@@ -4,6 +4,73 @@ type MetricType string
 type MetricName string
 
 const (
+	MetricNameAlloc        MetricName = "Alloc"
+	MetricNameBuckHashSys  MetricName = "BuckHashSys"
+	MetricNameBuckFrees    MetricName = "Frees"
+	MeticNameGCCPUFraction MetricName = "GCCPUFraction"
+	MeticNameGCSys         MetricName = "GCSys"
+	MeticNameHeapAlloc     MetricName = "HeapAlloc"
+	MeticNameHeapIdle      MetricName = "HeapIdle"
+	MeticNameHeapInuse     MetricName = "HeapInuse"
+	MeticNameHeapObjects   MetricName = "HeapObjects"
+	MeticNameHeapReleased  MetricName = "HeapReleased"
+	MeticNameHeapSys       MetricName = "HeapSys"
+	MeticNameLastGC        MetricName = "LastGC"
+	MeticNameLookups       MetricName = "Lookups"
+	MeticNameMCacheInuse   MetricName = "MCacheInuse"
+	MeticNameMCacheSys     MetricName = "MCacheSys"
+	MeticNameMSpanInuse    MetricName = "MSpanInuse"
+	MeticNameMSpanSys      MetricName = "MSpanSys"
+	MeticNameMallocs       MetricName = "Mallocs"
+	MeticNameNextGC        MetricName = "NextGC"
+	MeticNameNumForcedGC   MetricName = "NumForcedGC"
+	MeticNameNumGC         MetricName = "NumGC"
+	MeticNameOtherSys      MetricName = "OtherSys"
+	MeticNamePauseTotalNs  MetricName = "PauseTotalNs"
+	MeticNameStackInuse    MetricName = "StackInuse"
+	MeticNameStackSys      MetricName = "StackSys"
+	MeticNameSys           MetricName = "Sys"
+	MeticNameTotalAlloc    MetricName = "TotalAlloc"
+	MetricNamePollCount    MetricName = "PollCount"
+	MetricNameRandomValue  MetricName = "RandomValue"
+)
+
+var GaugeMetrics = []MetricName{
+	MetricNameAlloc,
+	MetricNameBuckHashSys,
+	MetricNameBuckFrees,
+	MeticNameGCCPUFraction,
+	MeticNameGCSys,
+	MeticNameHeapAlloc,
+	MeticNameHeapIdle,
+	MeticNameHeapInuse,
+	MeticNameHeapObjects,
+	MeticNameHeapReleased,
+	MeticNameHeapSys,
+	MeticNameLastGC,
+	MeticNameLookups,
+	MeticNameMCacheInuse,
+	MeticNameMCacheSys,
+	MeticNameMSpanInuse,
+	MeticNameMSpanSys,
+	MeticNameMallocs,
+	MeticNameNextGC,
+	MeticNameNumForcedGC,
+	MeticNameNumGC,
+	MeticNameOtherSys,
+	MeticNamePauseTotalNs,
+	MeticNameStackInuse,
+	MeticNameStackSys,
+	MeticNameSys,
+	MeticNameTotalAlloc,
+}
+
+var CounterMetrics = []MetricName{
+	MetricNamePollCount,
+	MetricNameRandomValue,
+}
+
+const (
 	MetricTypeGauge   MetricType = "gauge"
 	MetricTypeCounter MetricType = "counter"
 )
@@ -21,12 +88,12 @@ type MetricCounter struct {
 	val int64
 }
 
-func NewMetricGauge(val float64) Metric {
-	return &MetricGauge{val: val}
+func NewMetricGauge(val interface{}) Metric {
+	return &MetricGauge{val: val.(float64)}
 }
 
-func NewMetricCounter(val int64) Metric {
-	return &MetricCounter{val: val}
+func NewMetricCounter(val interface{}) Metric {
+	return &MetricCounter{val: val.(int64)}
 }
 
 func (m *MetricGauge) UpdateValue(v interface{}) {

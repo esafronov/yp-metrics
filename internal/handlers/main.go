@@ -8,26 +8,20 @@ import (
 	"github.com/esafronov/yp-metrics/internal/storage"
 )
 
-var storageInstance *storage.MemStorage
-
-func init() {
-	storageInstance = storage.NewMemStorage()
-}
-
 type ErrorPathFormat struct{}
 
 func (e ErrorPathFormat) Error() string {
-	return "url path has wrong format"
+	return "path has wrong format"
 }
 
 type ErrorPathValue struct{}
 
 func (e ErrorPathValue) Error() string {
-	return "url path has wrong values"
+	return "path has wrong values"
 }
 
-func ParseURL(p string) (map[string]interface{}, error) {
-	params := make(map[string]interface{})
+func ParseUpdatePATH(p string) (*UpdateParams, error) {
+	params := &UpdateParams{}
 
 	chunks := strings.Split(p, "/")
 
@@ -43,36 +37,44 @@ func ParseURL(p string) (map[string]interface{}, error) {
 		return nil, ErrorPathFormat{}
 	}
 
-	if chunks[2] != "gauge" && chunks[2] != "counter" {
+	if chunks[2] != string(storage.MetricTypeGauge) && chunks[2] != string(storage.MetricTypeCounter) {
 		return nil, ErrorPathValue{}
 	}
 
-	params["type"] = storage.MetricType(chunks[2])
+	params.MetricType = storage.MetricType(chunks[2])
 
 	if chunks[3] == "" {
 		return nil, ErrorPathFormat{}
 	}
 
-	params["name"] = storage.MetricName(chunks[3])
+	params.MetricName = storage.MetricName(chunks[3])
 
-	switch params["type"] {
+	switch params.MetricType {
 	case storage.MetricTypeGauge:
 		v, err := strconv.ParseFloat(chunks[4], 64)
 		if err != nil {
 			return nil, ErrorPathValue{}
 		}
-		params["value"] = v
+		params.Value = v
 	case storage.MetricTypeCounter:
 		v, err := strconv.ParseInt(chunks[4], 10, 64)
 		if err != nil {
 			return nil, ErrorPathValue{}
 		}
-		params["value"] = v
+		params.Value = v
 	}
 	return params, nil
 }
 
-type Main struct{}
+type Main struct {
+	Storage storage.Repositories
+}
+
+type UpdateParams struct {
+	MetricName storage.MetricName
+	MetricType storage.MetricType
+	Value      interface{}
+}
 
 func (h Main) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
@@ -86,7 +88,7 @@ func (h Main) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	params, err := ParseURL(req.URL.Path)
+	params, err := ParseUpdatePATH(req.URL.Path)
 
 	if err != nil {
 		switch err.(type) {
@@ -99,23 +101,16 @@ func (h Main) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	MetricName, _ := params["name"].(storage.MetricName)
-	MetricType, _ := params["type"].(storage.MetricType)
-
-	metric := storageInstance.Get(MetricName)
-	if metric != nil {
-		metric.UpdateValue(params["value"])
+	if exists := h.Storage.Get(params.MetricName); exists != nil {
+		h.Storage.Update(params.MetricName, params.Value)
 	} else {
-		switch MetricType {
+		switch params.MetricType {
 		case storage.MetricTypeGauge:
-			value, _ := params["value"].(float64)
-			storageInstance.Insert(MetricName, storage.NewMetricGauge(value))
+			h.Storage.Insert(params.MetricName, storage.NewMetricGauge(params.Value))
 		case storage.MetricTypeCounter:
-			value, _ := params["value"].(int64)
-			storageInstance.Insert(MetricName, storage.NewMetricCounter(value))
+			h.Storage.Insert(params.MetricName, storage.NewMetricCounter(params.Value))
 		}
 	}
-	storageInstance.Print()
 	res.Header().Add("Content-Type", "text/plain; charset=utf-8")
 	res.WriteHeader(http.StatusOK)
 }
