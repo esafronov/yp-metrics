@@ -61,7 +61,7 @@ func (a *Agent) SendReport() {
 			url += string(storage.MetricTypeGauge) + "/" + string(mn) + "/" + fmt.Sprintf("%f", mv)
 		case *storage.MetricCounter:
 			mv, _ := v.GetValue().(int64)
-			url += string(storage.MetricTypeCounter) + "/" + string(mn) + "/" + string(mv)
+			url += string(storage.MetricTypeCounter) + "/" + string(mn) + "/" + fmt.Sprint(mv)
 		}
 		var ioReader io.Reader
 		res, err := http.Post(url, "text/plain", ioReader)
@@ -79,6 +79,7 @@ func (a *Agent) SendReport() {
 		if bodyStr != "" {
 			panic("body should be empty")
 		}
+		res.Body.Close()
 	}
 }
 
