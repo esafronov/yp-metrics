@@ -66,8 +66,12 @@ func ParseUpdatePATH(p string) (*UpdateParams, error) {
 	return params, nil
 }
 
-type Main struct {
+type ApiHandler struct {
 	Storage storage.Repositories
+}
+
+func NewApiHandler(s storage.Repositories) *ApiHandler {
+	return &ApiHandler{Storage: s}
 }
 
 type UpdateParams struct {
@@ -76,7 +80,7 @@ type UpdateParams struct {
 	Value      interface{}
 }
 
-func (h Main) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+func (h ApiHandler) Update(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method != http.MethodPost {
 		http.Error(res, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)

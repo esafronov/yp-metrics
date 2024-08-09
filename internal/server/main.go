@@ -8,10 +8,16 @@ import (
 )
 
 func Run() {
-	var h = handlers.Main{
-		Storage: storage.NewMemStorage(),
+	var h = handlers.NewApiHandler(storage.NewMemStorage())
+	m := http.NewServeMux()
+	m.HandleFunc("/update/", h.Update)
+
+	var srv = &http.Server{
+		Addr:    ":8080",
+		Handler: m,
 	}
-	err := http.ListenAndServe(`:8080`, h)
+
+	err := srv.ListenAndServe()
 	if err != nil {
 		panic(err)
 	}
