@@ -70,8 +70,8 @@ type APIHandler struct {
 	Storage storage.Repositories
 }
 
-func NewAPIHandler(s storage.Repositories) *ApiHandler {
-	return &ApiHandler{Storage: s}
+func NewAPIHandler(s storage.Repositories) *APIHandler {
+	return &APIHandler{Storage: s}
 }
 
 type UpdateParams struct {
@@ -80,7 +80,7 @@ type UpdateParams struct {
 	Value      interface{}
 }
 
-func (h ApiHandler) Update(res http.ResponseWriter, req *http.Request) {
+func (h APIHandler) Update(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method != http.MethodPost {
 		http.Error(res, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)

@@ -8,7 +8,7 @@ import (
 )
 
 func Run() {
-	var h = handlers.NewApiHandler(storage.NewMemStorage())
+	var h = handlers.NewAPIHandler(storage.NewMemStorage())
 	m := http.NewServeMux()
 	m.HandleFunc("/update/", h.Update)
 
