@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestApiHandler_Update(t *testing.T) {
+func TestAPIHandler_Update(t *testing.T) {
 
 	type want struct {
 		contentType string
@@ -138,7 +138,7 @@ func TestApiHandler_Update(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := ApiHandler{
+			h := APIHandler{
 				Storage: &tt.storage,
 			}
 			request := httptest.NewRequest(http.MethodPost, tt.request, nil)
