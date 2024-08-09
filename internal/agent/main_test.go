@@ -37,9 +37,9 @@ func TestAgent_ReadStat(t *testing.T) {
 
 func TestAgent_StoreStat(t *testing.T) {
 	type want struct {
-		metric_name storage.MetricName
-		gvalue      float64
-		cvalue      int64
+		metricName storage.MetricName
+		gvalue     float64
+		cvalue     int64
 	}
 	tests := []struct {
 		name string
@@ -53,8 +53,8 @@ func TestAgent_StoreStat(t *testing.T) {
 				storage:  storage.NewMemStorage(),
 			},
 			want: want{
-				metric_name: storage.MeticNameTotalAlloc,
-				gvalue:      float64(123),
+				metricName: storage.MeticNameTotalAlloc,
+				gvalue:     float64(123),
 			},
 		},
 		{
@@ -68,8 +68,8 @@ func TestAgent_StoreStat(t *testing.T) {
 				},
 			},
 			want: want{
-				metric_name: storage.MeticNameLookups,
-				gvalue:      float64(456),
+				metricName: storage.MeticNameLookups,
+				gvalue:     float64(456),
 			},
 		},
 		{
@@ -83,8 +83,8 @@ func TestAgent_StoreStat(t *testing.T) {
 				},
 			},
 			want: want{
-				metric_name: storage.MeticNameLookups,
-				gvalue:      float64(456),
+				metricName: storage.MeticNameLookups,
+				gvalue:     float64(456),
 			},
 		},
 		{
@@ -99,16 +99,16 @@ func TestAgent_StoreStat(t *testing.T) {
 				},
 			},
 			want: want{
-				metric_name: storage.MetricNamePollCount,
-				cvalue:      int64(2),
+				metricName: storage.MetricNamePollCount,
+				cvalue:     int64(2),
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.a.StoreStat()
-			m := tt.a.storage.Get(tt.want.metric_name)
-			require.NotNil(t, m, "Метрика не найдена в хранилище по ключу %s", tt.want.metric_name)
+			m := tt.a.storage.Get(tt.want.metricName)
+			require.NotNil(t, m, "Метрика не найдена в хранилище по ключу %s", tt.want.metricName)
 			mv := m.GetValue()
 			switch m.(type) {
 			case *storage.MetricCounter:

@@ -56,7 +56,6 @@ func (a *Agent) StoreStat() {
 
 func (a *Agent) SendReport() {
 	for mn, v := range a.storage.GetAll() {
-		fmt.Printf("%s = %v\n", mn, v)
 		url := a.baseURL + "/update/"
 		switch v.(type) {
 		case *storage.MetricGauge:
@@ -94,12 +93,10 @@ func Run(pollInterval int, reportInterval int) {
 	timeStamp := time.Now()
 	for {
 		time.Sleep(time.Duration(pollInterval) * time.Second)
-		//		fmt.Println("poll runtime")
 		a.ReadStat()
 		a.StoreStat()
 		duration := time.Since(timeStamp)
 		if duration.Seconds() >= float64(reportInterval) {
-			//			fmt.Println("send report")
 			timeStamp = time.Now()
 			a.SendReport()
 		}
