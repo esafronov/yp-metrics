@@ -66,11 +66,11 @@ func ParseUpdatePATH(p string) (*UpdateParams, error) {
 	return params, nil
 }
 
-type ApiHandler struct {
+type APIHandler struct {
 	Storage storage.Repositories
 }
 
-func NewApiHandler(s storage.Repositories) *ApiHandler {
+func NewAPIHandler(s storage.Repositories) *ApiHandler {
 	return &ApiHandler{Storage: s}
 }
 
