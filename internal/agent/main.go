@@ -14,15 +14,18 @@ import (
 )
 
 type Agent struct {
-	storage storage.Repositories
-	baseURL string
+	storage  storage.Repositories
+	baseURL  string
+	memStats runtime.MemStats
 }
 
-func (a *Agent) PollRuntime() {
-	var memStats runtime.MemStats
-	runtime.ReadMemStats(&memStats)
-	r := reflect.ValueOf(memStats)
-	for _, m := range storage.GaugeMetrics {
+func (a *Agent) ReadStat() {
+	runtime.ReadMemStats(&a.memStats)
+}
+
+func (a *Agent) StoreStat() {
+	r := reflect.ValueOf(a.memStats)
+	for _, m := range storage.GetGaugeMetrics() {
 		rv := reflect.Indirect(r).FieldByName(string(m))
 		var v interface{}
 		if rv.CanUint() {
@@ -84,7 +87,7 @@ func (a *Agent) SendReport() {
 }
 
 func Run(pollInterval int, reportInterval int) {
-	agent := &Agent{
+	a := &Agent{
 		storage: storage.NewMemStorage(),
 		baseURL: "http://localhost:8080",
 	}
@@ -92,12 +95,13 @@ func Run(pollInterval int, reportInterval int) {
 	for {
 		time.Sleep(time.Duration(pollInterval) * time.Second)
 		//		fmt.Println("poll runtime")
-		agent.PollRuntime()
+		a.ReadStat()
+		a.StoreStat()
 		duration := time.Since(timeStamp)
 		if duration.Seconds() >= float64(reportInterval) {
 			//			fmt.Println("send report")
 			timeStamp = time.Now()
-			agent.SendReport()
+			a.SendReport()
 		}
 	}
 }

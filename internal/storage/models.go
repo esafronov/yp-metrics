@@ -35,39 +35,43 @@ const (
 	MetricNameRandomValue  MetricName = "RandomValue"
 )
 
-var GaugeMetrics = []MetricName{
-	MetricNameAlloc,
-	MetricNameBuckHashSys,
-	MetricNameBuckFrees,
-	MeticNameGCCPUFraction,
-	MeticNameGCSys,
-	MeticNameHeapAlloc,
-	MeticNameHeapIdle,
-	MeticNameHeapInuse,
-	MeticNameHeapObjects,
-	MeticNameHeapReleased,
-	MeticNameHeapSys,
-	MeticNameLastGC,
-	MeticNameLookups,
-	MeticNameMCacheInuse,
-	MeticNameMCacheSys,
-	MeticNameMSpanInuse,
-	MeticNameMSpanSys,
-	MeticNameMallocs,
-	MeticNameNextGC,
-	MeticNameNumForcedGC,
-	MeticNameNumGC,
-	MeticNameOtherSys,
-	MeticNamePauseTotalNs,
-	MeticNameStackInuse,
-	MeticNameStackSys,
-	MeticNameSys,
-	MeticNameTotalAlloc,
+func GetGaugeMetrics() []MetricName {
+	return []MetricName{
+		MetricNameAlloc,
+		MetricNameBuckHashSys,
+		MetricNameBuckFrees,
+		MeticNameGCCPUFraction,
+		MeticNameGCSys,
+		MeticNameHeapAlloc,
+		MeticNameHeapIdle,
+		MeticNameHeapInuse,
+		MeticNameHeapObjects,
+		MeticNameHeapReleased,
+		MeticNameHeapSys,
+		MeticNameLastGC,
+		MeticNameLookups,
+		MeticNameMCacheInuse,
+		MeticNameMCacheSys,
+		MeticNameMSpanInuse,
+		MeticNameMSpanSys,
+		MeticNameMallocs,
+		MeticNameNextGC,
+		MeticNameNumForcedGC,
+		MeticNameNumGC,
+		MeticNameOtherSys,
+		MeticNamePauseTotalNs,
+		MeticNameStackInuse,
+		MeticNameStackSys,
+		MeticNameSys,
+		MeticNameTotalAlloc,
+	}
 }
 
-var CounterMetrics = []MetricName{
-	MetricNamePollCount,
-	MetricNameRandomValue,
+func GetCounterMetrics() []MetricName {
+	return []MetricName{
+		MetricNamePollCount,
+		MetricNameRandomValue,
+	}
 }
 
 const (
