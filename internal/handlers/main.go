@@ -1,70 +1,13 @@
 package handlers
 
 import (
+	"io"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/esafronov/yp-metrics/internal/storage"
+	"github.com/go-chi/chi/v5"
 )
-
-type ErrorPathFormat struct{}
-
-func (e ErrorPathFormat) Error() string {
-	return "path has wrong format"
-}
-
-type ErrorPathValue struct{}
-
-func (e ErrorPathValue) Error() string {
-	return "path has wrong values"
-}
-
-func ParseUpdatePATH(p string) (*UpdateParams, error) {
-	params := &UpdateParams{}
-
-	chunks := strings.Split(p, "/")
-
-	if len(chunks) != 5 {
-		return nil, ErrorPathFormat{}
-	}
-
-	if chunks[0] != "" {
-		return nil, ErrorPathFormat{}
-	}
-
-	if chunks[1] != "update" {
-		return nil, ErrorPathFormat{}
-	}
-
-	if chunks[2] != string(storage.MetricTypeGauge) && chunks[2] != string(storage.MetricTypeCounter) {
-		return nil, ErrorPathValue{}
-	}
-
-	params.MetricType = storage.MetricType(chunks[2])
-
-	if chunks[3] == "" {
-		return nil, ErrorPathFormat{}
-	}
-
-	params.MetricName = storage.MetricName(chunks[3])
-
-	switch params.MetricType {
-	case storage.MetricTypeGauge:
-		v, err := strconv.ParseFloat(chunks[4], 64)
-		if err != nil {
-			return nil, ErrorPathValue{}
-		}
-		params.Value = v
-	case storage.MetricTypeCounter:
-		v, err := strconv.ParseInt(chunks[4], 10, 64)
-		if err != nil {
-			return nil, ErrorPathValue{}
-		}
-		params.Value = v
-	}
-	return params, nil
-}
 
 type APIHandler struct {
 	Storage storage.Repositories
@@ -80,41 +23,100 @@ type UpdateParams struct {
 	Value      interface{}
 }
 
+func (h APIHandler) GetRouter() chi.Router {
+	r := chi.NewRouter()
+	r.Get("/", h.Index)
+	r.Get("/value/{type}/{name}", h.Value)
+	r.Post("/update/{type}/{name}/{value}", h.Update)
+	return r
+}
+
+func (h APIHandler) Index(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Content-Type", "text/html; charset=utf-8")
+	html := "<html><body><dl>"
+	for name, value := range h.Storage.GetAll() {
+		html += "<dt>" + string(name) + "</dt><dd>" + value.String() + "</dd>"
+	}
+	html += "</dl></body></html>"
+	io.WriteString(res, "List"+html)
+}
+
+func (h APIHandler) Value(res http.ResponseWriter, req *http.Request) {
+	metricName := chi.URLParam(req, "name")
+	if metricName == "" {
+		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	m := h.Storage.Get(storage.MetricName(metricName))
+	if m == nil {
+		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	io.WriteString(res, m.String())
+}
+
 func (h APIHandler) Update(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method != http.MethodPost {
 		http.Error(res, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return
 	}
-	ContentType := req.Header.Values("Content-Type")
-	if len(ContentType) == 0 || ContentType[0] != "text/plain" {
+	contentType := req.Header.Values("Content-Type")
+	if len(contentType) == 0 || contentType[0] != "text/plain" {
 		http.Error(res, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
 		return
 	}
 
-	params, err := ParseUpdatePATH(req.URL.Path)
+	metricType := chi.URLParam(req, "type")
+	if metricType != string(storage.MetricTypeGauge) && metricType != string(storage.MetricTypeCounter) {
+		http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	sMetricType := storage.MetricType(metricType)
 
-	if err != nil {
-		switch err.(type) {
-		case ErrorPathValue:
+	metricName := chi.URLParam(req, "name")
+	if metricName == "" {
+		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	sMetricName := storage.MetricName(metricName)
+
+	metricValue := chi.URLParam(req, "value")
+	if metricValue == "" {
+		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	var sValue interface{}
+
+	switch sMetricType {
+	case storage.MetricTypeGauge:
+		if v, err := strconv.ParseFloat(metricValue, 64); err == nil {
+			sValue = v
+		} else {
 			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
-		case ErrorPathFormat:
-			http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		}
+	case storage.MetricTypeCounter:
+		if v, err := strconv.ParseInt(metricValue, 10, 64); err == nil {
+			sValue = v
+		} else {
+			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
 	}
 
-	if exists := h.Storage.Get(params.MetricName); exists != nil {
-		h.Storage.Update(params.MetricName, params.Value)
+	if exists := h.Storage.Get(sMetricName); exists != nil {
+		h.Storage.Update(sMetricName, sValue)
 	} else {
-		switch params.MetricType {
+		switch sMetricType {
 		case storage.MetricTypeGauge:
-			h.Storage.Insert(params.MetricName, storage.NewMetricGauge(params.Value))
+			h.Storage.Insert(sMetricName, storage.NewMetricGauge(sValue))
 		case storage.MetricTypeCounter:
-			h.Storage.Insert(params.MetricName, storage.NewMetricCounter(params.Value))
+			h.Storage.Insert(sMetricName, storage.NewMetricCounter(sValue))
 		}
 	}
-	res.Header().Add("Content-Type", "text/plain; charset=utf-8")
+	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	res.WriteHeader(http.StatusOK)
 }

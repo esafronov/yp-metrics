@@ -138,17 +138,20 @@ func TestAPIHandler_Update(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := APIHandler{
-				Storage: &tt.storage,
-			}
-			request := httptest.NewRequest(http.MethodPost, tt.request, nil)
-			request.Header = map[string][]string{
+			h := &APIHandler{Storage: &tt.storage}
+			ts := httptest.NewServer(h.GetRouter())
+
+			defer ts.Close()
+
+			req, err := http.NewRequest(http.MethodPost, ts.URL+tt.request, nil)
+			require.NoError(t, err)
+			req.Header = map[string][]string{
 				"Content-Type": {"text/plain"},
 			}
-			w := httptest.NewRecorder()
-			h.Update(w, request)
 
-			result := w.Result()
+			result, err := ts.Client().Do(req)
+			require.NoError(t, err)
+			defer result.Body.Close()
 
 			assert.Equal(t, tt.want.statusCode, result.StatusCode)
 			assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
@@ -156,13 +159,10 @@ func TestAPIHandler_Update(t *testing.T) {
 			if tt.want.statusCode == http.StatusOK {
 				body, err := io.ReadAll(result.Body)
 				require.NoError(t, err)
-				err = result.Body.Close()
-				require.NoError(t, err)
 				require.Equal(t, "", string(body))
-
 				m := h.Storage.Get(tt.want.metricname)
 				require.NotNil(t, m, "отправленная метрика не найдена в хранилище")
-				require.Equal(t, m, tt.want.metric, "метрика в хранилище не соответствует ожидаемой")
+				require.Equal(t, tt.want.metric, m, "метрика в хранилище не соответствует ожидаемой")
 			}
 		})
 	}

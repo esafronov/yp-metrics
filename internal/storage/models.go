@@ -1,5 +1,7 @@
 package storage
 
+import "fmt"
+
 type MetricType string
 type MetricName string
 
@@ -82,6 +84,7 @@ const (
 type Metric interface {
 	GetValue() interface{}
 	UpdateValue(interface{})
+	String() string
 }
 
 type MetricGauge struct {
@@ -114,4 +117,12 @@ func (m *MetricGauge) GetValue() interface{} {
 
 func (m *MetricCounter) GetValue() interface{} {
 	return m.val
+}
+
+func (m *MetricGauge) String() string {
+	return fmt.Sprintf("%f", m.val)
+}
+
+func (m *MetricCounter) String() string {
+	return fmt.Sprint(m.val)
 }

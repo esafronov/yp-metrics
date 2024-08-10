@@ -8,13 +8,11 @@ import (
 )
 
 func Run() {
-	var h = handlers.NewAPIHandler(storage.NewMemStorage())
-	m := http.NewServeMux()
-	m.HandleFunc("/update/", h.Update)
+	h := handlers.NewAPIHandler(storage.NewMemStorage())
 
-	var srv = &http.Server{
+	var srv = http.Server{
 		Addr:    ":8080",
-		Handler: m,
+		Handler: h.GetRouter(),
 	}
 
 	err := srv.ListenAndServe()
