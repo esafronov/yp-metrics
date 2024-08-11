@@ -7,16 +7,16 @@ import (
 	"github.com/esafronov/yp-metrics/internal/storage"
 )
 
-func Run() {
+func Run() error {
+	parseFlags()
+
 	h := handlers.NewAPIHandler(storage.NewMemStorage())
 
 	var srv = http.Server{
-		Addr:    ":8080",
+		Addr:    flagRunAddress,
 		Handler: h.GetRouter(),
 	}
 
-	err := srv.ListenAndServe()
-	if err != nil {
-		panic(err)
-	}
+	return srv.ListenAndServe()
+
 }

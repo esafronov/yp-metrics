@@ -14,9 +14,9 @@ import (
 )
 
 type Agent struct {
-	storage  storage.Repositories
-	baseURL  string
-	memStats runtime.MemStats
+	storage       storage.Repositories
+	serverAddress string
+	memStats      runtime.MemStats
 }
 
 func (a *Agent) ReadStat() {
@@ -56,7 +56,7 @@ func (a *Agent) StoreStat() {
 
 func (a *Agent) SendReport() {
 	for mn, v := range a.storage.GetAll() {
-		url := a.baseURL + "/update/"
+		url := a.serverAddress + "/update/"
 		switch v.(type) {
 		case *storage.MetricGauge:
 			mv, _ := v.GetValue().(float64)
@@ -85,18 +85,19 @@ func (a *Agent) SendReport() {
 	}
 }
 
-func Run(pollInterval int, reportInterval int) {
+func Run() {
+	parseFlags()
 	a := &Agent{
-		storage: storage.NewMemStorage(),
-		baseURL: "http://localhost:8080",
+		storage:       storage.NewMemStorage(),
+		serverAddress: flagServerAddress,
 	}
 	timeStamp := time.Now()
 	for {
-		time.Sleep(time.Duration(pollInterval) * time.Second)
+		time.Sleep(time.Duration(flagPollInterval) * time.Second)
 		a.ReadStat()
 		a.StoreStat()
 		duration := time.Since(timeStamp)
-		if duration.Seconds() >= float64(reportInterval) {
+		if duration.Seconds() >= float64(flagReportInterval) {
 			timeStamp = time.Now()
 			a.SendReport()
 		}

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"log"
+
 	"github.com/esafronov/yp-metrics/internal/server"
 )
 
 func main() {
-	server.Run()
+	log.Fatal(server.Run())
 }

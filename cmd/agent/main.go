@@ -5,9 +5,5 @@ import (
 )
 
 func main() {
-	const (
-		pollInterval   int = 2
-		reportInterval int = 10
-	)
-	agent.Run(pollInterval, reportInterval)
+	agent.Run()
 }

@@ -170,7 +170,7 @@ func TestAgent_SendReport(t *testing.T) {
 			}))
 			// Close the server when test finishes
 			defer server.Close()
-			tt.a.baseURL = server.URL
+			tt.a.serverAddress = server.URL
 			tt.a.SendReport()
 		})
 	}
