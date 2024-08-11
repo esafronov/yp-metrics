@@ -89,7 +89,7 @@ func Run() {
 	parseFlags()
 	a := &Agent{
 		storage:       storage.NewMemStorage(),
-		serverAddress: flagServerAddress,
+		serverAddress: "http://" + flagServerAddress,
 	}
 	timeStamp := time.Now()
 	for {
