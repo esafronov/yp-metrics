@@ -33,12 +33,12 @@ func (h APIHandler) GetRouter() chi.Router {
 
 func (h APIHandler) Index(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "text/html; charset=utf-8")
-	html := "<html><body><dl>"
+	html := `<html><body><table border="1">`
 	for name, value := range h.Storage.GetAll() {
-		html += "<dt>" + string(name) + "</dt><dd>" + value.String() + "</dd>"
+		html += `<tr><td>` + string(name) + `</td><td>` + value.String() + `</td></tr>`
 	}
-	html += "</dl></body></html>"
-	io.WriteString(res, "List"+html)
+	html += `</table></body></html>`
+	io.WriteString(res, "Storage list:"+html)
 }
 
 func (h APIHandler) Value(res http.ResponseWriter, req *http.Request) {
@@ -57,16 +57,6 @@ func (h APIHandler) Value(res http.ResponseWriter, req *http.Request) {
 }
 
 func (h APIHandler) Update(res http.ResponseWriter, req *http.Request) {
-
-	if req.Method != http.MethodPost {
-		http.Error(res, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-	contentType := req.Header.Values("Content-Type")
-	if len(contentType) == 0 || contentType[0] != "text/plain" {
-		http.Error(res, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
-		return
-	}
 
 	metricType := chi.URLParam(req, "type")
 	if metricType != string(storage.MetricTypeGauge) && metricType != string(storage.MetricTypeCounter) {

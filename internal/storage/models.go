@@ -1,6 +1,6 @@
 package storage
 
-import "fmt"
+import "strconv"
 
 type MetricType string
 type MetricName string
@@ -120,9 +120,9 @@ func (m *MetricCounter) GetValue() interface{} {
 }
 
 func (m *MetricGauge) String() string {
-	return fmt.Sprintf("%f", m.val)
+	return strconv.FormatFloat(m.val, 'f', -1, 64)
 }
 
 func (m *MetricCounter) String() string {
-	return fmt.Sprint(m.val)
+	return strconv.FormatInt(m.val, 10)
 }
