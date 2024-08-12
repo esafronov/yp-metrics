@@ -54,7 +54,7 @@ func (a *Agent) StoreStat() {
 	}
 }
 
-func (a *Agent) SendReport() {
+func (a *Agent) SendReport() error {
 	for mn, v := range a.storage.GetAll() {
 		url := a.serverAddress + "/update/"
 		switch v.(type) {
@@ -68,21 +68,25 @@ func (a *Agent) SendReport() {
 		var ioReader io.Reader
 		res, err := http.Post(url, "text/plain", ioReader)
 		if err != nil {
-			panic("error sending request")
+			return fmt.Errorf("post request: %s", err)
 		}
 		if res.StatusCode != http.StatusOK {
-			panic("status is not 200 OK")
+			res.Body.Close()
+			return fmt.Errorf("response status: %d", res.StatusCode)
 		}
 		resBody, err := io.ReadAll(res.Body)
 		if err != nil {
-			panic("error reading response 200 OK")
+			res.Body.Close()
+			return fmt.Errorf("read body: %s", err)
 		}
 		bodyStr := string(resBody)
 		if bodyStr != "" {
-			panic("body should be empty")
+			res.Body.Close()
+			return fmt.Errorf("empty response body")
 		}
 		res.Body.Close()
 	}
+	return nil
 }
 
 var serverAddress string
@@ -107,7 +111,10 @@ func Run() {
 		duration := time.Since(timeStamp)
 		if duration.Seconds() >= float64(reportInterval) {
 			timeStamp = time.Now()
-			a.SendReport()
+			if err := a.SendReport(); err != nil {
+				fmt.Println(err.Error())
+				continue
+			}
 		}
 	}
 }
