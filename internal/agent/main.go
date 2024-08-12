@@ -85,19 +85,27 @@ func (a *Agent) SendReport() {
 	}
 }
 
+var serverAddress string
+var pollInterval int = -1
+var reportInterval int = -1
+
 func Run() {
+	if err := parseEnv(); err != nil {
+		fmt.Printf("env parse err %v\n", err)
+		return
+	}
 	parseFlags()
 	a := &Agent{
 		storage:       storage.NewMemStorage(),
-		serverAddress: "http://" + flagServerAddress,
+		serverAddress: "http://" + serverAddress,
 	}
 	timeStamp := time.Now()
 	for {
-		time.Sleep(time.Duration(flagPollInterval) * time.Second)
+		time.Sleep(time.Duration(pollInterval) * time.Second)
 		a.ReadStat()
 		a.StoreStat()
 		duration := time.Since(timeStamp)
-		if duration.Seconds() >= float64(flagReportInterval) {
+		if duration.Seconds() >= float64(reportInterval) {
 			timeStamp = time.Now()
 			a.SendReport()
 		}

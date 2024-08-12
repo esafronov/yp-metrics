@@ -4,13 +4,15 @@ import (
 	"flag"
 )
 
-var flagServerAddress string
-var flagPollInterval int
-var flagReportInterval int
-
 func parseFlags() {
-	flag.StringVar(&flagServerAddress, "a", "localhost:8080", "address and port to send reports")
-	flag.IntVar(&flagPollInterval, "p", 2, "poll interval in seconds")
-	flag.IntVar(&flagReportInterval, "r", 10, "report interval in seconds")
+	if serverAddress == "" {
+		flag.StringVar(&serverAddress, "a", "localhost:8080", "address and port to send reports")
+	}
+	if pollInterval != -1 {
+		flag.IntVar(&pollInterval, "p", 2, "poll interval in seconds")
+	}
+	if reportInterval != -1 {
+		flag.IntVar(&reportInterval, "r", 10, "report interval in seconds")
+	}
 	flag.Parse()
 }
