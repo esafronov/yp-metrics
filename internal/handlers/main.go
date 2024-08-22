@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/esafronov/yp-metrics/internal/logger"
 	"github.com/esafronov/yp-metrics/internal/storage"
 	"github.com/go-chi/chi/v5"
 )
@@ -17,14 +18,9 @@ func NewAPIHandler(s storage.Repositories) *APIHandler {
 	return &APIHandler{Storage: s}
 }
 
-type UpdateParams struct {
-	MetricName storage.MetricName
-	MetricType storage.MetricType
-	Value      interface{}
-}
-
 func (h APIHandler) GetRouter() chi.Router {
 	r := chi.NewRouter()
+	r.Use(logger.RequestLogger)
 	r.Get("/", h.Index)
 	r.Get("/value/{type}/{name}", h.Value)
 	r.Post("/update/{type}/{name}/{value}", h.Update)

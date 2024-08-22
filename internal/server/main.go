@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/esafronov/yp-metrics/internal/handlers"
+	"github.com/esafronov/yp-metrics/internal/logger"
 	"github.com/esafronov/yp-metrics/internal/storage"
 )
 
@@ -15,6 +16,10 @@ func Run() error {
 		return err
 	}
 	parseFlags()
+	err := logger.Initialize("debug")
+	if err != nil {
+		return err
+	}
 	h := handlers.NewAPIHandler(storage.NewMemStorage())
 	srv := http.Server{
 		Addr:    serverAddress,
