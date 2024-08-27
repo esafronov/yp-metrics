@@ -24,11 +24,11 @@ func (h APIHandler) GetRouter() chi.Router {
 	r.Use(logger.RequestLogger)
 	r.Get("/", h.Index)
 	r.Route("/update", func(r chi.Router) {
-		r.Post("/", h.UpdateJson)
+		r.Post("/", h.UpdateJSON)
 		r.Post("/{type}/{name}/{value}", h.Update)
 	})
 	r.Route("/value", func(r chi.Router) {
-		r.Get("/", h.ValueJson)
+		r.Post("/", h.ValueJSON)
 		r.Get("/{type}/{name}", h.Value)
 	})
 	return r
@@ -44,7 +44,7 @@ func (h APIHandler) Index(res http.ResponseWriter, req *http.Request) {
 	io.WriteString(res, "Storage list:"+html)
 }
 
-func (h APIHandler) ValueJson(res http.ResponseWriter, req *http.Request) {
+func (h APIHandler) ValueJSON(res http.ResponseWriter, req *http.Request) {
 
 	if req.Header.Get("Content-Type") != "application/json" {
 		http.Error(res, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
@@ -82,7 +82,7 @@ func (h APIHandler) ValueJson(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (h APIHandler) UpdateJson(res http.ResponseWriter, req *http.Request) {
+func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 	var reqMetric storage.Metrics
 
 	if req.Header.Get("Content-Type") != "application/json" {
