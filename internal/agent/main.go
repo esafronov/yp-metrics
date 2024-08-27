@@ -68,7 +68,7 @@ func (a *Agent) SendReport() error {
 		reqMetric.SetValue(v)
 		marshaled, err := json.Marshal(reqMetric)
 		if err != nil {
-			return fmt.Errorf("Marshal error %s", err)
+			return fmt.Errorf("marshal error %s", err)
 		}
 		res, err := http.Post(url, "application/json", bytes.NewReader(marshaled))
 		if err != nil {

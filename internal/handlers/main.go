@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/esafronov/yp-metrics/internal/logger"
 	"github.com/esafronov/yp-metrics/internal/storage"
@@ -22,8 +23,14 @@ func (h APIHandler) GetRouter() chi.Router {
 	r := chi.NewRouter()
 	r.Use(logger.RequestLogger)
 	r.Get("/", h.Index)
-	r.Get("/value/", h.Value)
-	r.Post("/update/", h.Update)
+	r.Route("/update", func(r chi.Router) {
+		r.Post("/", h.UpdateJson)
+		r.Post("/{type}/{name}/{value}", h.Update)
+	})
+	r.Route("/value", func(r chi.Router) {
+		r.Get("/", h.ValueJson)
+		r.Get("/{type}/{name}", h.Value)
+	})
 	return r
 }
 
@@ -37,7 +44,7 @@ func (h APIHandler) Index(res http.ResponseWriter, req *http.Request) {
 	io.WriteString(res, "Storage list:"+html)
 }
 
-func (h APIHandler) Value(res http.ResponseWriter, req *http.Request) {
+func (h APIHandler) ValueJson(res http.ResponseWriter, req *http.Request) {
 
 	if req.Header.Get("Content-Type") != "application/json" {
 		http.Error(res, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
@@ -75,7 +82,7 @@ func (h APIHandler) Value(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (h APIHandler) Update(res http.ResponseWriter, req *http.Request) {
+func (h APIHandler) UpdateJson(res http.ResponseWriter, req *http.Request) {
 	var reqMetric storage.Metrics
 
 	if req.Header.Get("Content-Type") != "application/json" {
@@ -129,4 +136,73 @@ func (h APIHandler) Update(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+}
+
+func (h APIHandler) Update(res http.ResponseWriter, req *http.Request) {
+	mt := chi.URLParam(req, "type")
+	if mt != string(storage.MetricTypeGauge) && mt != string(storage.MetricTypeCounter) {
+		http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	metricType := storage.MetricType(mt)
+
+	mn := chi.URLParam(req, "name")
+	if mn == "" {
+		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	metricName := storage.MetricName(mn)
+
+	mv := chi.URLParam(req, "value")
+	if mv == "" {
+		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	var value interface{}
+
+	switch metricType {
+	case storage.MetricTypeGauge:
+		if v, err := strconv.ParseFloat(mv, 64); err == nil {
+			value = v
+		} else {
+			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
+	case storage.MetricTypeCounter:
+		if v, err := strconv.ParseInt(mv, 10, 64); err == nil {
+			value = v
+		} else {
+			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
+	}
+
+	if existed := h.Storage.Get(metricName); existed != nil {
+		h.Storage.Update(existed, value)
+	} else {
+		switch metricType {
+		case storage.MetricTypeGauge:
+			h.Storage.Insert(metricName, storage.NewMetricGauge(value))
+		case storage.MetricTypeCounter:
+			h.Storage.Insert(metricName, storage.NewMetricCounter(value))
+		}
+	}
+	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	res.WriteHeader(http.StatusOK)
+}
+
+func (h APIHandler) Value(res http.ResponseWriter, req *http.Request) {
+	mn := chi.URLParam(req, "name")
+	if mn == "" {
+		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	m := h.Storage.Get(storage.MetricName(mn))
+	if m == nil {
+		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	io.WriteString(res, m.String())
 }
