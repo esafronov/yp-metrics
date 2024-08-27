@@ -19,8 +19,8 @@ func (s *MemStorage) Insert(key MetricName, m Metric) {
 	s.Values[key] = m
 }
 
-func (s *MemStorage) Update(key MetricName, v interface{}) {
-	s.Values[key].UpdateValue(v)
+func (s *MemStorage) Update(m Metric, v interface{}) {
+	m.UpdateValue(v)
 }
 
 func (s *MemStorage) GetAll() map[MetricName]Metric {

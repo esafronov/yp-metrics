@@ -1,9 +1,9 @@
 package handlers
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
-	"strconv"
 
 	"github.com/esafronov/yp-metrics/internal/logger"
 	"github.com/esafronov/yp-metrics/internal/storage"
@@ -22,8 +22,8 @@ func (h APIHandler) GetRouter() chi.Router {
 	r := chi.NewRouter()
 	r.Use(logger.RequestLogger)
 	r.Get("/", h.Index)
-	r.Get("/value/{type}/{name}", h.Value)
-	r.Post("/update/{type}/{name}/{value}", h.Update)
+	r.Get("/value/", h.Value)
+	r.Post("/update/", h.Update)
 	return r
 }
 
@@ -38,71 +38,95 @@ func (h APIHandler) Index(res http.ResponseWriter, req *http.Request) {
 }
 
 func (h APIHandler) Value(res http.ResponseWriter, req *http.Request) {
-	metricName := chi.URLParam(req, "name")
-	if metricName == "" {
+
+	if req.Header.Get("Content-Type") != "application/json" {
+		http.Error(res, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
+		return
+	}
+
+	var delta int64
+	var value float64
+	var reqMetric = storage.Metrics{
+		Delta: &delta,
+		Value: &value,
+	}
+
+	if err := json.NewDecoder(req.Body).Decode(&reqMetric); err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if reqMetric.ID == "" {
 		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
-	m := h.Storage.Get(storage.MetricName(metricName))
-	if m == nil {
+	metricName := storage.MetricName(reqMetric.ID)
+
+	metric := h.Storage.Get(metricName)
+	if metric == nil {
 		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
-	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	io.WriteString(res, m.String())
+	reqMetric.SetValue(metric)
+	res.Header().Set("Content-Type", "application/json")
+	res.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(res).Encode(reqMetric); err != nil {
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h APIHandler) Update(res http.ResponseWriter, req *http.Request) {
+	var reqMetric storage.Metrics
 
-	metricType := chi.URLParam(req, "type")
-	if metricType != string(storage.MetricTypeGauge) && metricType != string(storage.MetricTypeCounter) {
+	if req.Header.Get("Content-Type") != "application/json" {
+		http.Error(res, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
+		return
+	}
+
+	if err := json.NewDecoder(req.Body).Decode(&reqMetric); err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if reqMetric.MType != string(storage.MetricTypeGauge) && reqMetric.MType != string(storage.MetricTypeCounter) {
 		http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	sMetricType := storage.MetricType(metricType)
-
-	metricName := chi.URLParam(req, "name")
-	if metricName == "" {
+	metricType := storage.MetricType(reqMetric.MType)
+	if reqMetric.ID == "" {
 		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
-	sMetricName := storage.MetricName(metricName)
+	metricName := storage.MetricName(reqMetric.ID)
 
-	metricValue := chi.URLParam(req, "value")
-	if metricValue == "" {
-		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
-		return
-	}
+	var value interface{}
 
-	var sValue interface{}
-
-	switch sMetricType {
+	switch metricType {
 	case storage.MetricTypeGauge:
-		if v, err := strconv.ParseFloat(metricValue, 64); err == nil {
-			sValue = v
-		} else {
-			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return
-		}
+		value = *reqMetric.Value
 	case storage.MetricTypeCounter:
-		if v, err := strconv.ParseInt(metricValue, 10, 64); err == nil {
-			sValue = v
-		} else {
-			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return
-		}
+		value = *reqMetric.Delta
+	default:
+		http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
 	}
 
-	if exists := h.Storage.Get(sMetricName); exists != nil {
-		h.Storage.Update(sMetricName, sValue)
+	metric := h.Storage.Get(metricName)
+	if metric != nil {
+		h.Storage.Update(metric, value)
 	} else {
-		switch sMetricType {
+		switch metricType {
 		case storage.MetricTypeGauge:
-			h.Storage.Insert(sMetricName, storage.NewMetricGauge(sValue))
+			metric = storage.NewMetricGauge(value)
 		case storage.MetricTypeCounter:
-			h.Storage.Insert(sMetricName, storage.NewMetricCounter(sValue))
+			metric = storage.NewMetricCounter(value)
 		}
+		h.Storage.Insert(metricName, metric)
 	}
-	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	reqMetric.SetValue(metric)
+	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(res).Encode(reqMetric); err != nil {
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 }

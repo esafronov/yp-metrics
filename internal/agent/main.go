@@ -1,8 +1,9 @@
 package agent
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"io"
 	"math/rand"
 	"net/http"
 	"time"
@@ -34,57 +35,49 @@ func (a *Agent) StoreStat() {
 			v = rv.Float()
 		}
 		if exists := a.storage.Get(m); exists != nil {
-			a.storage.Update(m, v)
+			a.storage.Update(exists, v)
 		} else {
 			a.storage.Insert(m, storage.NewMetricGauge(v))
 		}
 	}
 
-	if exists := a.storage.Get(storage.MetricNamePollCount); exists != nil {
-		a.storage.Update(storage.MetricNamePollCount, int64(1))
+	if existed := a.storage.Get(storage.MetricNamePollCount); existed != nil {
+		a.storage.Update(existed, int64(1))
 	} else {
 		a.storage.Insert(storage.MetricNamePollCount, storage.NewMetricCounter(int64(1)))
 	}
 
 	rn := rand.New(rand.NewSource(time.Now().UnixNano()))
-	if exists := a.storage.Get(storage.MetricNameRandomValue); exists != nil {
-		a.storage.Update(storage.MetricNameRandomValue, rn.Float64())
+	if existed := a.storage.Get(storage.MetricNameRandomValue); existed != nil {
+		a.storage.Update(existed, rn.Float64())
 	} else {
 		a.storage.Insert(storage.MetricNameRandomValue, storage.NewMetricGauge(rn.Float64()))
 	}
 }
 
 func (a *Agent) SendReport() error {
-	for mn, v := range a.storage.GetAll() {
+	for metricName, v := range a.storage.GetAll() {
 		url := a.serverAddress + "/update/"
-		switch v.(type) {
-		case *storage.MetricGauge:
-			mv, _ := v.GetValue().(float64)
-			url += string(storage.MetricTypeGauge) + "/" + string(mn) + "/" + fmt.Sprintf("%f", mv)
-		case *storage.MetricCounter:
-			mv, _ := v.GetValue().(int64)
-			url += string(storage.MetricTypeCounter) + "/" + string(mn) + "/" + fmt.Sprint(mv)
+		var delta int64
+		var value float64
+		var reqMetric = storage.Metrics{
+			Delta: &delta,
+			Value: &value,
+			ID:    string(metricName),
 		}
-		var ioReader io.Reader
-		res, err := http.Post(url, "text/plain", ioReader)
+		reqMetric.SetValue(v)
+		marshaled, err := json.Marshal(reqMetric)
+		if err != nil {
+			return fmt.Errorf("Marshal error %s", err)
+		}
+		res, err := http.Post(url, "application/json", bytes.NewReader(marshaled))
 		if err != nil {
 			return fmt.Errorf("post request: %s", err)
 		}
+		defer res.Body.Close()
 		if res.StatusCode != http.StatusOK {
-			res.Body.Close()
 			return fmt.Errorf("response status: %d", res.StatusCode)
 		}
-		resBody, err := io.ReadAll(res.Body)
-		if err != nil {
-			res.Body.Close()
-			return fmt.Errorf("read body: %s", err)
-		}
-		bodyStr := string(resBody)
-		if bodyStr != "" {
-			res.Body.Close()
-			return fmt.Errorf("empty response body")
-		}
-		res.Body.Close()
 	}
 	return nil
 }

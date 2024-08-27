@@ -1,6 +1,8 @@
 package storage
 
-import "strconv"
+import (
+	"strconv"
+)
 
 type MetricType string
 type MetricName string
@@ -125,4 +127,28 @@ func (m *MetricGauge) String() string {
 
 func (m *MetricCounter) String() string {
 	return strconv.FormatInt(m.val, 10)
+}
+
+// structure for client-server communication
+type Metrics struct {
+	ID    string   `json:"id"`              // имя метрики
+	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
+	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
+	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+}
+
+// set communication structure from Metric
+func (m *Metrics) SetValue(sm Metric) {
+	switch sm.(type) {
+	case *MetricGauge:
+		m.MType = string(MetricTypeGauge)
+		*m.Value = sm.GetValue().(float64)
+		m.Delta = nil
+	case *MetricCounter:
+		m.MType = string(MetricTypeCounter)
+		*m.Delta = sm.GetValue().(int64)
+		m.Value = nil
+	default:
+		panic("wrong metric struct type")
+	}
 }
