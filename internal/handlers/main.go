@@ -51,12 +51,7 @@ func (h APIHandler) ValueJSON(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var delta int64
-	var value float64
-	var reqMetric = storage.Metrics{
-		Delta: &delta,
-		Value: &value,
-	}
+	var reqMetric storage.Metrics
 
 	if err := json.NewDecoder(req.Body).Decode(&reqMetric); err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -73,9 +68,9 @@ func (h APIHandler) ValueJSON(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
-	reqMetric.SetValue(metric)
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
+	reqMetric.ActualValue = metric.GetValue()
 	if err := json.NewEncoder(res).Encode(reqMetric); err != nil {
 		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
@@ -104,19 +99,7 @@ func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	metricName := storage.MetricName(reqMetric.ID)
-
-	var value interface{}
-
-	switch metricType {
-	case storage.MetricTypeGauge:
-		value = *reqMetric.Value
-	case storage.MetricTypeCounter:
-		value = *reqMetric.Delta
-	default:
-		http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
-	}
-
+	value := reqMetric.ActualValue
 	metric := h.Storage.Get(metricName)
 	if metric != nil {
 		h.Storage.Update(metric, value)
@@ -129,7 +112,7 @@ func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 		}
 		h.Storage.Insert(metricName, metric)
 	}
-	reqMetric.SetValue(metric)
+	reqMetric.ActualValue = metric.GetValue()
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(res).Encode(reqMetric); err != nil {
