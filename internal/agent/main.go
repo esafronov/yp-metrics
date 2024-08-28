@@ -56,12 +56,13 @@ func (a *Agent) StoreStat() {
 }
 
 func (a *Agent) SendReport() error {
+	var reqMetric *storage.Metrics
 	for metricName, v := range a.storage.GetAll() {
 		url := a.serverAddress + "/update/"
-		var reqMetric = storage.Metrics{
-			ID: string(metricName),
+		reqMetric = &storage.Metrics{
+			ID:          string(metricName),
+			ActualValue: v.GetValue(),
 		}
-		reqMetric.ActualValue = v.GetValue()
 		marshaled, err := json.Marshal(reqMetric)
 		if err != nil {
 			return fmt.Errorf("marshal error %s", err)

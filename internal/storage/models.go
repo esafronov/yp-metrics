@@ -142,10 +142,9 @@ type Metrics struct {
 
 func (m *Metrics) UnmarshalJSON(data []byte) (err error) {
 	type MetricsAlias Metrics
+
 	aliasValue := &struct {
 		*MetricsAlias
-		Delta int64   `json:"delta,omitempty"`
-		Value float64 `json:"value,omitempty"`
 	}{
 		MetricsAlias: (*MetricsAlias)(m),
 	}
@@ -154,9 +153,13 @@ func (m *Metrics) UnmarshalJSON(data []byte) (err error) {
 	}
 	switch MetricType(m.MType) {
 	case MetricTypeGauge:
-		m.ActualValue = aliasValue.Value
+		if m.Value != nil {
+			m.ActualValue = *m.Value
+		}
 	case MetricTypeCounter:
-		m.ActualValue = aliasValue.Delta
+		if m.Delta != nil {
+			m.ActualValue = *m.Delta
+		}
 	default:
 		return fmt.Errorf("wrong metric type %s", m.MType)
 	}
@@ -168,26 +171,29 @@ func (m Metrics) MarshalJSON() ([]byte, error) {
 	type MetricsAlias Metrics
 	var delta int64
 	var value float64
+	aliasValue := struct {
+		MetricsAlias
+		Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
+		Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	}{
+		// встраиваем значение всех полей изначального объекта (embedding)
+		MetricsAlias: MetricsAlias(m),
+		Delta:        &delta,
+		Value:        &value,
+	}
+
 	switch m.ActualValue.(type) {
 	case float64:
-		m.MType = string(MetricTypeGauge)
-		value = m.ActualValue.(float64)
+		aliasValue.MType = string(MetricTypeGauge)
+		*aliasValue.Value = m.ActualValue.(float64)
+		aliasValue.Delta = nil
 	case int64:
-		m.MType = string(MetricTypeCounter)
-		delta = m.ActualValue.(int64)
+		aliasValue.MType = string(MetricTypeCounter)
+		*aliasValue.Delta = m.ActualValue.(int64)
+		aliasValue.Value = nil
 	default:
 		panic("wrong metric struct type")
 	}
 
-	aliasValue := struct {
-		MetricsAlias
-		Delta int64   `json:"delta,omitempty"`
-		Value float64 `json:"value,omitempty"`
-	}{
-		// встраиваем значение всех полей изначального объекта (embedding)
-		MetricsAlias: MetricsAlias(m),
-		Delta:        delta,
-		Value:        value,
-	}
 	return json.Marshal(aliasValue) // вызываем стандартный Marshal
 }
