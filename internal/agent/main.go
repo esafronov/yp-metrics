@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -67,7 +68,24 @@ func (a *Agent) SendReport() error {
 		if err != nil {
 			return fmt.Errorf("marshal error %s", err)
 		}
-		res, err := http.Post(url, "application/json", bytes.NewReader(marshaled))
+		var compressed bytes.Buffer
+		zwr := gzip.NewWriter(&compressed)
+		_, err = zwr.Write(marshaled)
+		if err != nil {
+			return fmt.Errorf("failed compress request: %v", err)
+		}
+		err = zwr.Close()
+		if err != nil {
+			return fmt.Errorf("failed compress request: %v", err)
+		}
+		req, err := http.NewRequest(http.MethodPost, url, &compressed)
+		if err != nil {
+			return fmt.Errorf("post request: %s", err)
+		}
+		//header will be added automatically Accept-Encoding : gzip , so not need to add
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		res, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return fmt.Errorf("post request: %s", err)
 		}

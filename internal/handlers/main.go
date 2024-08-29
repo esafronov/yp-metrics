@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/esafronov/yp-metrics/internal/compress"
 	"github.com/esafronov/yp-metrics/internal/logger"
 	"github.com/esafronov/yp-metrics/internal/storage"
 	"github.com/go-chi/chi/v5"
@@ -22,6 +23,7 @@ func NewAPIHandler(s storage.Repositories) *APIHandler {
 func (h APIHandler) GetRouter() chi.Router {
 	r := chi.NewRouter()
 	r.Use(logger.RequestLogger)
+	r.Use(compress.GzipCompress)
 	r.Get("/", h.Index)
 	r.Route("/update", func(r chi.Router) {
 		r.Post("/", h.UpdateJSON)

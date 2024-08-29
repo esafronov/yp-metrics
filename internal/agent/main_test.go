@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/esafronov/yp-metrics/internal/compress"
 	"github.com/esafronov/yp-metrics/internal/storage"
 	"github.com/stretchr/testify/require"
 )
@@ -183,13 +184,13 @@ func TestAgent_SendReport(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			server := httptest.NewServer(compress.GzipCompress(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 				require.Equal(t, tt.want.contentType, req.Header.Get("Content-Type"))
 				require.Equal(t, tt.want.request.path, req.URL.String())
 				body, err := io.ReadAll(req.Body)
 				require.Nil(t, err, "error reading request body")
 				require.JSONEq(t, tt.want.request.body, string(body))
-			}))
+			})))
 			// Close the server when test finishes
 			defer server.Close()
 			tt.a.serverAddress = server.URL

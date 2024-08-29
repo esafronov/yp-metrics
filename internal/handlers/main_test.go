@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAPIHandler_Update(t *testing.T) {
+func TestAPIHandler_UpdateJSON(t *testing.T) {
 
 	type want struct {
 		contentType string
