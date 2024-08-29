@@ -37,12 +37,13 @@ func (h APIHandler) GetRouter() chi.Router {
 }
 
 func (h APIHandler) Index(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Content-Type", "text/html; charset=utf-8")
 	html := `<html><body><table border="1">`
 	for name, value := range h.Storage.GetAll() {
 		html += `<tr><td>` + string(name) + `</td><td>` + value.String() + `</td></tr>`
 	}
 	html += `</table></body></html>`
+	res.Header().Set("Content-Type", "text/html")
+	res.WriteHeader(http.StatusOK)
 	io.WriteString(res, "Storage list:"+html)
 }
 

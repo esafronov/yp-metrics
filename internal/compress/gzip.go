@@ -2,6 +2,7 @@ package compress
 
 import (
 	"compress/gzip"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -39,6 +40,7 @@ func (c *gzipWriter) WriteHeader(statusCode int) {
 	contentType := c.w.Header().Get("Content-Type")
 	//if we need to compress
 	if contentType == "application/json" || contentType == "text/html" {
+		fmt.Println("here")
 		//if http code is not a error
 		if statusCode < 300 {
 			c.compress = true
