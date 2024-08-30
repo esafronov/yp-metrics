@@ -23,7 +23,7 @@ func NewAPIHandler(s storage.Repositories) *APIHandler {
 func (h APIHandler) GetRouter() chi.Router {
 	r := chi.NewRouter()
 	r.Use(logger.RequestLogger)
-	r.Use(compress.GzipCompress)
+	r.Use(compress.GzipCompressing)
 	r.Get("/", h.Index)
 	r.Route("/update", func(r chi.Router) {
 		r.Post("/", h.UpdateJSON)

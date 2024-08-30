@@ -1,6 +1,7 @@
 package compress
 
 import (
+	"bytes"
 	"compress/gzip"
 	"io"
 	"net/http"
@@ -86,7 +87,8 @@ func (c *gzipReader) Close() error {
 	return c.zr.Close()
 }
 
-func GzipCompress(h http.Handler) http.Handler {
+// server middleware for compressing data
+func GzipCompressing(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// по умолчанию устанавливаем оригинальный http.ResponseWriter как тот,
 		// который будем передавать следующей функции
@@ -123,4 +125,18 @@ func GzipCompress(h http.Handler) http.Handler {
 		// передаём управление хендлеру
 		h.ServeHTTP(ow, r)
 	})
+}
+
+// compress bytes to buffer
+func GzipToBuffer(data []byte, buf *bytes.Buffer) error {
+	wr := gzip.NewWriter(buf)
+	_, err := wr.Write(data)
+	if err != nil {
+		return err
+	}
+	err = wr.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }
