@@ -36,7 +36,7 @@ func (a *Agent) StoreStat() {
 			v = rv.Float()
 		}
 		if exists := a.storage.Get(metricName); exists != nil {
-			a.storage.Update(metricName, storage.NewMetricCounter(v))
+			a.storage.Update(metricName, storage.NewMetricGauge(v))
 		} else {
 			a.storage.Insert(metricName, storage.NewMetricGauge(v))
 		}
