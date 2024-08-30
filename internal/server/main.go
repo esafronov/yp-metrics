@@ -27,6 +27,12 @@ func Run() error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err := storage.Close()
+		if err != nil {
+			fmt.Printf("storage can't be closed %v", err)
+		}
+	}()
 	h := handlers.NewAPIHandler(storage)
 	srv := http.Server{
 		Addr:    serverAddress,

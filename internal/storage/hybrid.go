@@ -20,19 +20,14 @@ type HybridStorage struct {
 func NewHybridStorage(filename string, storeInterval int, restore *bool) (storage *HybridStorage, err error) {
 	var file *os.File
 	//if filename is not empty we open it
+	backupActive := true
 	if filename != "" {
 		file, err = os.OpenFile(filename, os.O_CREATE|os.O_RDWR, 0666)
 		if err != nil {
 			return
 		}
-		defer file.Close()
 	} else {
-		//if filename is empty, we create tmp file
-		file, err = os.CreateTemp("", "tmpstorage*")
-		if err != nil {
-			return
-		}
-		defer os.Remove(file.Name())
+		backupActive = false
 	}
 	encoder := json.NewEncoder(file)
 	decoder := json.NewDecoder(file)
@@ -45,7 +40,7 @@ func NewHybridStorage(filename string, storeInterval int, restore *bool) (storag
 		lastStored:    time.Time{},
 		encoder:       encoder,
 		decoder:       decoder,
-		backupActive:  true,
+		backupActive:  backupActive,
 	}
 	if *restore {
 		err = storage.Restore()
@@ -96,6 +91,9 @@ func (s *HybridStorage) Backup() error {
 }
 
 func (s *HybridStorage) Restore() error {
+	if !s.backupActive {
+		return nil
+	}
 	s.backupActive = false
 	for s.decoder.More() {
 		var metric Metrics
@@ -114,4 +112,8 @@ func (s *HybridStorage) Restore() error {
 	}
 	s.backupActive = true
 	return nil
+}
+
+func (s *HybridStorage) Close() error {
+	return s.file.Close()
 }
