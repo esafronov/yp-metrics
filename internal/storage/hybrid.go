@@ -25,7 +25,7 @@ func NewHybridStorage(filename string, storeInterval int, restore *bool) (storag
 		if err != nil {
 			return
 		}
-		//		defer file.Close()
+		defer file.Close()
 	} else {
 		//if filename is empty, we create tmp file
 		file, err = os.CreateTemp("", "tmpstorage*")
