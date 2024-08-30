@@ -27,30 +27,30 @@ func (a *Agent) ReadStat() {
 
 func (a *Agent) StoreStat() {
 	r := reflect.ValueOf(a.memStats)
-	for _, m := range storage.GetGaugeMetrics() {
-		rv := reflect.Indirect(r).FieldByName(string(m))
+	for _, metricName := range storage.GetGaugeMetrics() {
+		rv := reflect.Indirect(r).FieldByName(string(metricName))
 		var v interface{}
 		if rv.CanUint() {
 			v = float64(rv.Uint())
 		} else if rv.CanFloat() {
 			v = rv.Float()
 		}
-		if exists := a.storage.Get(m); exists != nil {
-			a.storage.Update(exists, v)
+		if exists := a.storage.Get(metricName); exists != nil {
+			a.storage.Update(metricName, storage.NewMetricCounter(v))
 		} else {
-			a.storage.Insert(m, storage.NewMetricGauge(v))
+			a.storage.Insert(metricName, storage.NewMetricGauge(v))
 		}
 	}
 
-	if existed := a.storage.Get(storage.MetricNamePollCount); existed != nil {
-		a.storage.Update(existed, int64(1))
+	if exists := a.storage.Get(storage.MetricNamePollCount); exists != nil {
+		a.storage.Update(storage.MetricNamePollCount, int64(1))
 	} else {
 		a.storage.Insert(storage.MetricNamePollCount, storage.NewMetricCounter(int64(1)))
 	}
 
 	rn := rand.New(rand.NewSource(time.Now().UnixNano()))
-	if existed := a.storage.Get(storage.MetricNameRandomValue); existed != nil {
-		a.storage.Update(existed, rn.Float64())
+	if exists := a.storage.Get(storage.MetricNameRandomValue); exists != nil {
+		a.storage.Update(storage.MetricNameRandomValue, rn.Float64())
 	} else {
 		a.storage.Insert(storage.MetricNameRandomValue, storage.NewMetricGauge(rn.Float64()))
 	}
@@ -111,8 +111,7 @@ func Run() {
 		time.Sleep(time.Duration(pollInterval) * time.Second)
 		a.ReadStat()
 		a.StoreStat()
-		duration := time.Since(timeStamp)
-		if duration.Seconds() >= float64(reportInterval) {
+		if time.Since(timeStamp).Seconds() >= float64(reportInterval) {
 			timeStamp = time.Now()
 			if err := a.SendReport(); err != nil {
 				fmt.Println(err.Error())

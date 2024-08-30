@@ -9,7 +9,10 @@ import (
 	"github.com/esafronov/yp-metrics/internal/storage"
 )
 
-var serverAddress string
+var serverAddress string   //server address to listen
+var storeInterval int = -1 //store interval
+var fileStoragePath string //file storage path
+var restoreData *bool      //restore or not data on start
 
 func Run() error {
 	if err := parseEnv(); err != nil {
@@ -20,7 +23,11 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	h := handlers.NewAPIHandler(storage.NewMemStorage())
+	storage, err := storage.NewHybridStorage(fileStoragePath, storeInterval, restoreData)
+	if err != nil {
+		return err
+	}
+	h := handlers.NewAPIHandler(storage)
 	srv := http.Server{
 		Addr:    serverAddress,
 		Handler: h.GetRouter(),

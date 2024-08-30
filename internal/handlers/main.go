@@ -105,7 +105,7 @@ func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 	value := reqMetric.ActualValue
 	metric := h.Storage.Get(metricName)
 	if metric != nil {
-		h.Storage.Update(metric, value)
+		h.Storage.Update(metricName, value)
 	} else {
 		switch metricType {
 		case storage.MetricTypeGauge:
@@ -165,7 +165,7 @@ func (h APIHandler) Update(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if existed := h.Storage.Get(metricName); existed != nil {
-		h.Storage.Update(existed, value)
+		h.Storage.Update(metricName, value)
 	} else {
 		switch metricType {
 		case storage.MetricTypeGauge:
