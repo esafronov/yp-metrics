@@ -93,8 +93,8 @@ func (a *Agent) SendReport() error {
 }
 
 var serverAddress string
-var pollInterval int = -1
-var reportInterval int = -1
+var pollInterval *int
+var reportInterval *int
 
 func Run() {
 	if err := parseEnv(); err != nil {
@@ -108,10 +108,10 @@ func Run() {
 	}
 	timeStamp := time.Now()
 	for {
-		time.Sleep(time.Duration(pollInterval) * time.Second)
+		time.Sleep(time.Duration(*pollInterval) * time.Second)
 		a.ReadStat()
 		a.StoreStat()
-		if time.Since(timeStamp).Seconds() >= float64(reportInterval) {
+		if time.Since(timeStamp).Seconds() >= float64(*reportInterval) {
 			timeStamp = time.Now()
 			if err := a.SendReport(); err != nil {
 				fmt.Println(err.Error())

@@ -6,8 +6,8 @@ import (
 
 type envParams struct {
 	Address        string `env:"ADDRESS"`
-	ReportInterval int    `env:"REPORT_INTERVAL"`
-	PollInterval   int    `env:"POLL_INTERVAL"`
+	ReportInterval *int   `env:"REPORT_INTERVAL"`
+	PollInterval   *int   `env:"POLL_INTERVAL"`
 }
 
 func parseEnv() error {
