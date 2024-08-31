@@ -17,7 +17,7 @@ type HybridStorage struct {
 	backupActive  bool          //is backuping active or not, for internal usage
 }
 
-func NewHybridStorage(filename string, storeInterval int, restore *bool) (storage *HybridStorage, err error) {
+func NewHybridStorage(filename string, storeInterval *int, restore *bool) (storage *HybridStorage, err error) {
 	var file *os.File
 	//if filename is not empty we open it
 	backupActive := true
@@ -36,7 +36,7 @@ func NewHybridStorage(filename string, storeInterval int, restore *bool) (storag
 			Values: make(map[MetricName]Metric),
 		},
 		file:          file,
-		storeInterval: storeInterval,
+		storeInterval: *storeInterval,
 		lastStored:    time.Time{},
 		encoder:       encoder,
 		decoder:       decoder,
@@ -115,5 +115,14 @@ func (s *HybridStorage) Restore() error {
 }
 
 func (s *HybridStorage) Close() error {
-	return s.file.Close()
+	if s.backupActive {
+		fmt.Println("make final backup before shutdown")
+		if err := s.Backup(); err != nil {
+			return err
+		}
+	}
+	if s.file != nil {
+		return s.file.Close()
+	}
+	return nil
 }
