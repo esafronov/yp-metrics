@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/esafronov/yp-metrics/internal/storage"
@@ -11,49 +12,129 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAPIHandler_Update(t *testing.T) {
+func TestAPIHandler_UpdateJSON(t *testing.T) {
 
 	type want struct {
 		contentType string
 		statusCode  int
 		metric      storage.Metric
 		metricname  storage.MetricName
+		body        string
+	}
+
+	type request struct {
+		path string
+		body string
 	}
 
 	tests := []struct {
 		name    string
 		storage storage.MemStorage
-		request string
+		request *request
 		want    want
 	}{
 		{
-			name: "positive gauge",
+			name: "positive update gauge sequence",
 			storage: storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{
-					"test": storage.NewMetricGauge(float64(1.1)),
+					"test": storage.NewMetricGauge(float64(1.2)),
 				},
 			},
-			request: "/update/gauge/test/1.1",
+			request: &request{
+				path: "/update/",
+				body: `{
+					"id":"test",
+					"type":"gauge",
+					"value":1.1
+				}`,
+			},
 			want: want{
-				contentType: "text/plain; charset=utf-8",
+				contentType: "application/json",
 				statusCode:  http.StatusOK,
 				metric:      storage.NewMetricGauge(float64(1.1)),
 				metricname:  storage.MetricName("test"),
+				body: `{
+					"id":"test",
+					"type":"gauge",
+					"value":1.1
+				}`,
 			},
 		},
 		{
-			name: "positive counter",
+			name: "positive update counter sequence",
 			storage: storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{
 					"test": storage.NewMetricCounter(int64(2)),
 				},
 			},
-			request: "/update/counter/test/2",
+			request: &request{
+				path: "/update/",
+				body: `{
+					"ID":"test",
+					"type":"counter",
+					"delta":2
+				}`,
+			},
 			want: want{
-				contentType: "text/plain; charset=utf-8",
+				contentType: "application/json",
 				statusCode:  http.StatusOK,
 				metric:      storage.NewMetricCounter(int64(4)),
 				metricname:  storage.MetricName("test"),
+				body: `{
+					"id":"test",
+					"type":"counter",
+					"delta":4
+				}`,
+			},
+		},
+		{
+			name: "positive new gauge",
+			storage: storage.MemStorage{
+				Values: map[storage.MetricName]storage.Metric{},
+			},
+			request: &request{
+				path: "/update/",
+				body: `{
+					"ID":"test",
+					"type":"gauge",
+					"value":1.1
+				}`,
+			},
+			want: want{
+				contentType: "application/json",
+				statusCode:  http.StatusOK,
+				metric:      storage.NewMetricGauge(float64(1.1)),
+				metricname:  storage.MetricName("test"),
+				body: `{
+					"id":"test",
+					"type":"gauge",
+					"value":1.1
+				}`,
+			},
+		},
+		{
+			name: "positive new counter",
+			storage: storage.MemStorage{
+				Values: map[storage.MetricName]storage.Metric{},
+			},
+			request: &request{
+				path: "/update/",
+				body: `{
+					"ID":"test",
+					"type":"counter",
+					"delta":2
+				}`,
+			},
+			want: want{
+				contentType: "application/json",
+				statusCode:  http.StatusOK,
+				metric:      storage.NewMetricCounter(int64(2)),
+				metricname:  storage.MetricName("test"),
+				body: `{
+					"id":"test",
+					"type":"counter",
+					"delta":2
+				}`,
 			},
 		},
 		{
@@ -61,12 +142,16 @@ func TestAPIHandler_Update(t *testing.T) {
 			storage: storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
-			request: "/update/gauge/test/f",
+			request: &request{
+				path: "/update/",
+				body: `{
+					"ID":"test",
+					"type":"gauge",
+					"value":"f"
+				}`,
+			},
 			want: want{
-				contentType: "text/plain; charset=utf-8",
-				statusCode:  http.StatusBadRequest,
-				metric:      storage.NewMetricGauge(float64(2)),
-				metricname:  storage.MetricName("test"),
+				statusCode: http.StatusBadRequest,
 			},
 		},
 		{
@@ -74,12 +159,16 @@ func TestAPIHandler_Update(t *testing.T) {
 			storage: storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
-			request: "/update/counter/test/1.1",
+			request: &request{
+				path: "/update/",
+				body: `{
+					"ID":"test",
+					"type":"counter",
+					"delta":1.1
+				}`,
+			},
 			want: want{
-				contentType: "text/plain; charset=utf-8",
-				statusCode:  http.StatusBadRequest,
-				metric:      storage.NewMetricCounter(int64(2)),
-				metricname:  storage.MetricName("test"),
+				statusCode: http.StatusBadRequest,
 			},
 		},
 		{
@@ -87,12 +176,16 @@ func TestAPIHandler_Update(t *testing.T) {
 			storage: storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
-			request: "/update/counter//1.1",
+			request: &request{
+				path: "/update/",
+				body: `{
+					"ID":"",
+					"type":"counter",
+					"value":1
+				}`,
+			},
 			want: want{
-				contentType: "text/plain; charset=utf-8",
-				statusCode:  http.StatusNotFound,
-				metric:      storage.NewMetricCounter(int64(2)),
-				metricname:  storage.MetricName("test"),
+				statusCode: http.StatusNotFound,
 			},
 		},
 		{
@@ -100,12 +193,16 @@ func TestAPIHandler_Update(t *testing.T) {
 			storage: storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
-			request: "/update/cor/rrr/1",
+			request: &request{
+				path: "/update/",
+				body: `{
+					"ID":"test",
+					"type":"wrong",
+					"value":1
+				}`,
+			},
 			want: want{
-				contentType: "text/plain; charset=utf-8",
-				statusCode:  http.StatusBadRequest,
-				metric:      storage.NewMetricCounter(int64(2)),
-				metricname:  storage.MetricName("test"),
+				statusCode: http.StatusBadRequest,
 			},
 		},
 		{
@@ -113,25 +210,12 @@ func TestAPIHandler_Update(t *testing.T) {
 			storage: storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
-			request: "/update/",
-			want: want{
-				contentType: "text/plain; charset=utf-8",
-				statusCode:  http.StatusNotFound,
-				metric:      storage.NewMetricCounter(int64(2)),
-				metricname:  storage.MetricName("test"),
+			request: &request{
+				path: "/updat",
+				body: `{}`,
 			},
-		},
-		{
-			name: "wrong path #2",
-			storage: storage.MemStorage{
-				Values: map[storage.MetricName]storage.Metric{},
-			},
-			request: "/update/counter/dd/1/",
 			want: want{
-				contentType: "text/plain; charset=utf-8",
-				statusCode:  http.StatusNotFound,
-				metric:      storage.NewMetricCounter(int64(2)),
-				metricname:  storage.MetricName("test"),
+				statusCode: http.StatusNotFound,
 			},
 		},
 		// TODO: Add test cases.
@@ -142,11 +226,11 @@ func TestAPIHandler_Update(t *testing.T) {
 			ts := httptest.NewServer(h.GetRouter())
 
 			defer ts.Close()
-
-			req, err := http.NewRequest(http.MethodPost, ts.URL+tt.request, nil)
+			reader := strings.NewReader(tt.request.body)
+			req, err := http.NewRequest(http.MethodPost, ts.URL+tt.request.path, reader)
 			require.NoError(t, err)
 			req.Header = map[string][]string{
-				"Content-Type": {"text/plain"},
+				"Content-Type": {"application/json"},
 			}
 
 			result, err := ts.Client().Do(req)
@@ -154,12 +238,12 @@ func TestAPIHandler_Update(t *testing.T) {
 			defer result.Body.Close()
 
 			assert.Equal(t, tt.want.statusCode, result.StatusCode)
-			assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
 
 			if tt.want.statusCode == http.StatusOK {
+				assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
 				body, err := io.ReadAll(result.Body)
 				require.NoError(t, err)
-				require.Equal(t, "", string(body))
+				require.JSONEq(t, tt.want.body, string(body))
 				m := h.Storage.Get(tt.want.metricname)
 				require.NotNil(t, m, "отправленная метрика не найдена в хранилище")
 				require.Equal(t, tt.want.metric, m, "метрика в хранилище не соответствует ожидаемой")

@@ -1,6 +1,10 @@
 package storage
 
-import "strconv"
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+)
 
 type MetricType string
 type MetricName string
@@ -125,4 +129,71 @@ func (m *MetricGauge) String() string {
 
 func (m *MetricCounter) String() string {
 	return strconv.FormatInt(m.val, 10)
+}
+
+// structure for client-server communication
+type Metrics struct {
+	ID          string      `json:"id"`              // имя метрики
+	MType       string      `json:"type"`            // параметр, принимающий значение gauge или counter
+	Delta       *int64      `json:"delta,omitempty"` // значение метрики в случае передачи counter
+	Value       *float64    `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	ActualValue interface{} `json:"-"`
+}
+
+func (m *Metrics) UnmarshalJSON(data []byte) (err error) {
+	type MetricsAlias Metrics
+
+	aliasValue := &struct {
+		*MetricsAlias
+	}{
+		MetricsAlias: (*MetricsAlias)(m),
+	}
+	if err := json.Unmarshal(data, aliasValue); err != nil {
+		return err
+	}
+	switch MetricType(m.MType) {
+	case MetricTypeGauge:
+		if m.Value != nil {
+			m.ActualValue = *m.Value
+		}
+	case MetricTypeCounter:
+		if m.Delta != nil {
+			m.ActualValue = *m.Delta
+		}
+	default:
+		return fmt.Errorf("wrong metric type %s", m.MType)
+	}
+	return
+}
+
+func (m Metrics) MarshalJSON() ([]byte, error) {
+	// чтобы избежать рекурсии при json.Marshal, объявляем новый тип
+	type MetricsAlias Metrics
+	var delta int64
+	var value float64
+	aliasValue := struct {
+		MetricsAlias
+		Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
+		Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	}{
+		// встраиваем значение всех полей изначального объекта (embedding)
+		MetricsAlias: MetricsAlias(m),
+		Delta:        &delta,
+		Value:        &value,
+	}
+
+	switch m.ActualValue.(type) {
+	case float64:
+		aliasValue.MType = string(MetricTypeGauge)
+		*aliasValue.Value = m.ActualValue.(float64)
+		aliasValue.Delta = nil
+	case int64:
+		aliasValue.MType = string(MetricTypeCounter)
+		*aliasValue.Delta = m.ActualValue.(int64)
+		aliasValue.Value = nil
+	default:
+		panic("wrong metric struct type")
+	}
+
+	return json.Marshal(aliasValue) // вызываем стандартный Marshal
 }

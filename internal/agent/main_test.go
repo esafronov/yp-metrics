@@ -1,12 +1,14 @@
 package agent
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"runtime"
 	"testing"
 
+	"github.com/esafronov/yp-metrics/internal/compress"
 	"github.com/esafronov/yp-metrics/internal/storage"
 	"github.com/stretchr/testify/require"
 )
@@ -121,9 +123,14 @@ func TestAgent_StoreStat(t *testing.T) {
 }
 
 func TestAgent_SendReport(t *testing.T) {
+	type request struct {
+		path string
+		body string
+	}
+
 	type want struct {
 		contentType string
-		request     string
+		request     *request
 	}
 
 	tests := []struct {
@@ -132,7 +139,7 @@ func TestAgent_SendReport(t *testing.T) {
 		want want
 	}{
 		{
-			name: "send /update/gauge/Lookups/1.200000",
+			name: "send gauge Lookups 1.200000",
 			a: &Agent{
 				storage: &storage.MemStorage{
 					Values: map[storage.MetricName]storage.Metric{
@@ -141,12 +148,19 @@ func TestAgent_SendReport(t *testing.T) {
 				},
 			},
 			want: want{
-				contentType: "text/plain",
-				request:     "/update/gauge/Lookups/1.200000",
+				contentType: "application/json",
+				request: &request{
+					path: "/update/",
+					body: `{
+						"id" : "Lookups",
+						"type" : "gauge",
+						"value" : 1.200000
+					}`,
+				},
 			},
 		},
 		{
-			name: "send /update/counter/PollCount/1",
+			name: "send counter PollCount 1",
 			a: &Agent{
 				storage: &storage.MemStorage{
 					Values: map[storage.MetricName]storage.Metric{
@@ -155,19 +169,28 @@ func TestAgent_SendReport(t *testing.T) {
 				},
 			},
 			want: want{
-				contentType: "text/plain",
-				request:     "/update/counter/PollCount/1",
+				contentType: "application/json",
+				request: &request{
+					path: "/update/",
+					body: `{
+						"id" : "PollCount",
+						"type" : "counter",
+						"delta" : 1
+					}`,
+				},
 			},
 		},
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			server := httptest.NewServer(compress.GzipCompressing(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 				require.Equal(t, tt.want.contentType, req.Header.Get("Content-Type"))
-				require.Equal(t, tt.want.request, req.URL.String())
-				//rw.Write([]byte(`OK`))
-			}))
+				require.Equal(t, tt.want.request.path, req.URL.String())
+				body, err := io.ReadAll(req.Body)
+				require.Nil(t, err, "error reading request body")
+				require.JSONEq(t, tt.want.request.body, string(body))
+			})))
 			// Close the server when test finishes
 			defer server.Close()
 			tt.a.serverAddress = server.URL
