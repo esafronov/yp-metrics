@@ -2,7 +2,6 @@ package pg
 
 import (
 	"database/sql"
-	"fmt"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -10,9 +9,6 @@ import (
 var DB *sql.DB
 
 func Connect(databaseDsn *string) error {
-	if *databaseDsn == "" {
-		return fmt.Errorf("databaseDsn shoud not be empty")
-	}
 	db, err := sql.Open("pgx", *databaseDsn)
 	if err != nil {
 		return err
@@ -22,5 +18,7 @@ func Connect(databaseDsn *string) error {
 }
 
 func Close() {
-	DB.Close()
+	if DB != nil {
+		DB.Close()
+	}
 }
