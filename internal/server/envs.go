@@ -5,10 +5,11 @@ import (
 )
 
 type envParams struct {
-	Address         string `env:"ADDRESS"`
-	StoreInterval   *int   `env:"STORE_INTERVAL"`
-	FileStoragePath string `env:"FILE_STORAGE_PATH"`
-	Restore         *bool  `env:"RESTORE"`
+	Address         string  `env:"ADDRESS"`
+	StoreInterval   *int    `env:"STORE_INTERVAL"`
+	FileStoragePath string  `env:"FILE_STORAGE_PATH"`
+	Restore         *bool   `env:"RESTORE"`
+	DatabaseDsn     *string `env:"DATABASE_DSN"`
 }
 
 func parseEnv() error {
@@ -20,5 +21,6 @@ func parseEnv() error {
 	storeInterval = p.StoreInterval
 	fileStoragePath = p.FileStoragePath
 	restoreData = p.Restore
+	databaseDsn = p.DatabaseDsn
 	return nil
 }

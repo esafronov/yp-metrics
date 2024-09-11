@@ -17,5 +17,8 @@ func parseFlags() {
 	if restoreData == nil {
 		restoreData = flag.Bool("r", true, "restore data on server start")
 	}
+	if databaseDsn == nil {
+		databaseDsn = flag.String("d", "", "database dsn")
+	}
 	flag.Parse()
 }

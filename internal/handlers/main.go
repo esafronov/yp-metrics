@@ -8,8 +8,10 @@ import (
 
 	"github.com/esafronov/yp-metrics/internal/compress"
 	"github.com/esafronov/yp-metrics/internal/logger"
+	"github.com/esafronov/yp-metrics/internal/pg"
 	"github.com/esafronov/yp-metrics/internal/storage"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 type APIHandler struct {
@@ -24,16 +26,27 @@ func (h APIHandler) GetRouter() chi.Router {
 	r := chi.NewRouter()
 	r.Use(logger.RequestLogger)
 	r.Use(compress.GzipCompressing)
-	r.Get("/", h.Index)
+	r.Get("/", h.Index)    //html table with all stored metrics
+	r.Get("/ping", h.Ping) //test DB connection
 	r.Route("/update", func(r chi.Router) {
-		r.Post("/", h.UpdateJSON)
-		r.Post("/{type}/{name}/{value}", h.Update)
+		r.Post("/", h.UpdateJSON)                  //update metric with json request
+		r.Post("/{type}/{name}/{value}", h.Update) //update metric with url request
 	})
 	r.Route("/value", func(r chi.Router) {
-		r.Post("/", h.ValueJSON)
-		r.Get("/{type}/{name}", h.Value)
+		r.Post("/", h.ValueJSON)         //get metric value with json request
+		r.Get("/{type}/{name}", h.Value) //get metric value with url request
 	})
 	return r
+}
+
+func (h APIHandler) Ping(res http.ResponseWriter, req *http.Request) {
+	if err := pg.DB.Ping(); err != nil {
+		logger.Log.Info("ping error", zap.Error(err))
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	res.Header().Set("Content-Type", "text/html")
+	res.WriteHeader(http.StatusOK)
 }
 
 func (h APIHandler) Index(res http.ResponseWriter, req *http.Request) {

@@ -19,7 +19,6 @@ type HybridStorage struct {
 
 func NewHybridStorage(filename string, storeInterval *int, restore *bool) (storage *HybridStorage, err error) {
 	var file *os.File
-	//if filename is not empty we open it
 	backupActive := true
 	if filename != "" {
 		file, err = os.OpenFile(filename, os.O_CREATE|os.O_RDWR, 0666)
