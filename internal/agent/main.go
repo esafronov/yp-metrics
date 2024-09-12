@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -27,6 +28,7 @@ func (a *Agent) ReadStat() {
 
 func (a *Agent) StoreStat() {
 	r := reflect.ValueOf(a.memStats)
+	ctx := context.Background()
 	for _, metricName := range storage.GetGaugeMetrics() {
 		rv := reflect.Indirect(r).FieldByName(string(metricName))
 		var v interface{}
@@ -35,30 +37,36 @@ func (a *Agent) StoreStat() {
 		} else if rv.CanFloat() {
 			v = rv.Float()
 		}
-		if exists := a.storage.Get(metricName); exists != nil {
-			a.storage.Update(metricName, v)
+		metric, _ := a.storage.Get(ctx, metricName)
+		if metric != nil {
+			a.storage.Update(ctx, metricName, v, metric)
 		} else {
-			a.storage.Insert(metricName, storage.NewMetricGauge(v))
+			a.storage.Insert(ctx, metricName, storage.NewMetricGauge(v))
 		}
 	}
-
-	if exists := a.storage.Get(storage.MetricNamePollCount); exists != nil {
-		a.storage.Update(storage.MetricNamePollCount, int64(1))
+	metric, _ := a.storage.Get(ctx, storage.MetricNamePollCount)
+	if metric != nil {
+		a.storage.Update(ctx, storage.MetricNamePollCount, int64(1), metric)
 	} else {
-		a.storage.Insert(storage.MetricNamePollCount, storage.NewMetricCounter(int64(1)))
+		a.storage.Insert(ctx, storage.MetricNamePollCount, storage.NewMetricCounter(int64(1)))
 	}
 
 	rn := rand.New(rand.NewSource(time.Now().UnixNano()))
-	if exists := a.storage.Get(storage.MetricNameRandomValue); exists != nil {
-		a.storage.Update(storage.MetricNameRandomValue, rn.Float64())
+	metric, _ = a.storage.Get(ctx, storage.MetricNameRandomValue)
+	if metric != nil {
+		a.storage.Update(ctx, storage.MetricNameRandomValue, rn.Float64(), metric)
 	} else {
-		a.storage.Insert(storage.MetricNameRandomValue, storage.NewMetricGauge(rn.Float64()))
+		a.storage.Insert(ctx, storage.MetricNameRandomValue, storage.NewMetricGauge(rn.Float64()))
 	}
 }
 
 func (a *Agent) SendReport() error {
 	var reqMetric *storage.Metrics
-	for metricName, v := range a.storage.GetAll() {
+	items, err := a.storage.GetAll(context.Background())
+	if err != nil {
+		return fmt.Errorf("cannot get metrics %s", err)
+	}
+	for metricName, v := range items {
 		url := a.serverAddress + "/update/"
 		reqMetric = &storage.Metrics{
 			ID:          string(metricName),

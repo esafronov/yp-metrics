@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -108,8 +109,9 @@ func TestAgent_StoreStat(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
 			tt.a.StoreStat()
-			m := tt.a.storage.Get(tt.want.metricName)
+			m, _ := tt.a.storage.Get(ctx, tt.want.metricName)
 			require.NotNil(t, m, "Метрика не найдена в хранилище по ключу %s", tt.want.metricName)
 			mv := m.GetValue()
 			switch m.(type) {
