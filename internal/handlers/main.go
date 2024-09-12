@@ -40,7 +40,7 @@ func (h APIHandler) GetRouter() chi.Router {
 }
 
 func (h APIHandler) Ping(res http.ResponseWriter, req *http.Request) {
-	if err := pg.DB.Ping(); err != nil {
+	if err := pg.DB.PingContext(req.Context()); err != nil {
 		logger.Log.Info("ping error", zap.Error(err))
 		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
@@ -51,7 +51,12 @@ func (h APIHandler) Ping(res http.ResponseWriter, req *http.Request) {
 
 func (h APIHandler) Index(res http.ResponseWriter, req *http.Request) {
 	html := `<html><body><table border="1">`
-	for name, value := range h.Storage.GetAll() {
+	items, err := h.Storage.GetAll(req.Context())
+	if err != nil {
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	for name, value := range items {
 		html += `<tr><td>` + string(name) + `</td><td>` + value.String() + `</td></tr>`
 	}
 	html += `</table></body></html>`
@@ -79,7 +84,11 @@ func (h APIHandler) ValueJSON(res http.ResponseWriter, req *http.Request) {
 	}
 	metricName := storage.MetricName(reqMetric.ID)
 
-	metric := h.Storage.Get(metricName)
+	metric, err := h.Storage.Get(req.Context(), metricName)
+	if err != nil {
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 	if metric == nil {
 		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
@@ -95,12 +104,10 @@ func (h APIHandler) ValueJSON(res http.ResponseWriter, req *http.Request) {
 
 func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 	var reqMetric storage.Metrics
-
 	if req.Header.Get("Content-Type") != "application/json" {
 		http.Error(res, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
 		return
 	}
-
 	if err := json.NewDecoder(req.Body).Decode(&reqMetric); err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
@@ -116,9 +123,19 @@ func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 	}
 	metricName := storage.MetricName(reqMetric.ID)
 	value := reqMetric.ActualValue
-	metric := h.Storage.Get(metricName)
+	metric, err := h.Storage.Get(req.Context(), metricName)
+	if err != nil {
+		logger.Log.Error("get metric", zap.Error(err))
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 	if metric != nil {
-		h.Storage.Update(metricName, value)
+		err = h.Storage.Update(req.Context(), metricName, value, metric)
+		if err != nil {
+			logger.Log.Error("update metric", zap.Error(err))
+			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
 	} else {
 		switch metricType {
 		case storage.MetricTypeGauge:
@@ -126,7 +143,12 @@ func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 		case storage.MetricTypeCounter:
 			metric = storage.NewMetricCounter(value)
 		}
-		h.Storage.Insert(metricName, metric)
+		err = h.Storage.Insert(req.Context(), metricName, metric)
+		if err != nil {
+			logger.Log.Error("insert metric", zap.Error(err))
+			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
 	}
 	reqMetric.ActualValue = metric.GetValue()
 	res.Header().Set("Content-Type", "application/json")
@@ -177,14 +199,19 @@ func (h APIHandler) Update(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	if existed := h.Storage.Get(metricName); existed != nil {
-		h.Storage.Update(metricName, value)
+	metric, err := h.Storage.Get(req.Context(), metricName)
+	if err != nil {
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	if metric != nil {
+		h.Storage.Update(req.Context(), metricName, value, metric)
 	} else {
 		switch metricType {
 		case storage.MetricTypeGauge:
-			h.Storage.Insert(metricName, storage.NewMetricGauge(value))
+			h.Storage.Insert(req.Context(), metricName, storage.NewMetricGauge(value))
 		case storage.MetricTypeCounter:
-			h.Storage.Insert(metricName, storage.NewMetricCounter(value))
+			h.Storage.Insert(req.Context(), metricName, storage.NewMetricCounter(value))
 		}
 	}
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -197,7 +224,11 @@ func (h APIHandler) Value(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
-	m := h.Storage.Get(storage.MetricName(mn))
+	m, err := h.Storage.Get(req.Context(), storage.MetricName(mn))
+	if err != nil {
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 	if m == nil {
 		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return

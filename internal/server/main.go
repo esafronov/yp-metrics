@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -32,18 +33,26 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	defer pg.Close()
-	storage, err := storage.NewHybridStorage(fileStoragePath, storeInterval, restoreData)
-	if err != nil {
-		return err
+	ctx := context.Background()
+	var storageInst storage.Repositories
+	if *databaseDsn == "" {
+		storageInst, err = storage.NewHybridStorage(ctx, fileStoragePath, storeInterval, restoreData)
+		if err != nil {
+			return err
+		}
+	} else {
+		storageInst, err = storage.NewDbStorage(ctx, pg.DB)
+		if err != nil {
+			return err
+		}
 	}
 	defer func() {
-		err := storage.Close()
+		err := storageInst.Close(ctx)
 		if err != nil {
 			fmt.Printf("storage can't be closed %s", err)
 		}
 	}()
-	h := handlers.NewAPIHandler(storage)
+	h := handlers.NewAPIHandler(storageInst)
 	srv := http.Server{
 		Addr:    serverAddress,
 		Handler: h.GetRouter(),
