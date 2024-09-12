@@ -41,7 +41,7 @@ func Run() error {
 			return err
 		}
 	} else {
-		storageInst, err = storage.NewDbStorage(ctx, pg.DB)
+		storageInst, err = storage.NewDBStorage(ctx, pg.DB)
 		if err != nil {
 			return err
 		}

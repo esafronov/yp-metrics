@@ -8,12 +8,12 @@ import (
 
 const tableName string = "metrics"
 
-type DbStorage struct {
+type DBStorage struct {
 	db *sql.DB
 }
 
-func NewDbStorage(ctx context.Context, db *sql.DB) (*DbStorage, error) {
-	storage := &DbStorage{
+func NewDBStorage(ctx context.Context, db *sql.DB) (*DBStorage, error) {
+	storage := &DBStorage{
 		db,
 	}
 	if err := storage.createTable(ctx); err != nil {
@@ -22,12 +22,13 @@ func NewDbStorage(ctx context.Context, db *sql.DB) (*DbStorage, error) {
 	return storage, nil
 }
 
-func (s *DbStorage) Get(ctx context.Context, key MetricName) (Metric, error) {
+func (s *DBStorage) Get(ctx context.Context, key MetricName) (Metric, error) {
 	rows, err := s.db.QueryContext(ctx, "SELECT value_gauge, value_counter FROM "+tableName+
 		" WHERE metric_name = $1 LIMIT 1", string(key))
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	if !rows.Next() {
 		return nil, nil
 	}
@@ -47,10 +48,15 @@ func (s *DbStorage) Get(ctx context.Context, key MetricName) (Metric, error) {
 		v := counterValue.Int64
 		return NewMetricCounter(v), nil
 	}
+	// проверяем на ошибки
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
 	return nil, fmt.Errorf("metric value is null")
 }
 
-func (s *DbStorage) Insert(ctx context.Context, key MetricName, m Metric) error {
+func (s *DBStorage) Insert(ctx context.Context, key MetricName, m Metric) error {
 	switch m.(type) {
 	case *MetricCounter:
 		val := m.GetValue().(int64)
@@ -68,16 +74,14 @@ func (s *DbStorage) Insert(ctx context.Context, key MetricName, m Metric) error 
 	return nil
 }
 
-func (s *DbStorage) Update(ctx context.Context, key MetricName, v interface{}, metric Metric) error {
-	switch v.(type) {
+func (s *DBStorage) Update(ctx context.Context, key MetricName, v interface{}, metric Metric) error {
+	switch val := v.(type) {
 	case int64:
-		val := v.(int64)
 		_, err := s.db.ExecContext(ctx, "UPDATE "+tableName+" SET value_counter=value_counter+$1 WHERE metric_name=$2", val, string(key))
 		if err != nil {
 			return err
 		}
 	case float64:
-		val := v.(float64)
 		_, err := s.db.ExecContext(ctx, "UPDATE "+tableName+" SET value_gauge=$1 WHERE metric_name=$2", val, string(key))
 		if err != nil {
 			return err
@@ -87,11 +91,13 @@ func (s *DbStorage) Update(ctx context.Context, key MetricName, v interface{}, m
 	return nil
 }
 
-func (s *DbStorage) GetAll(ctx context.Context) (map[MetricName]Metric, error) {
+func (s *DBStorage) GetAll(ctx context.Context) (map[MetricName]Metric, error) {
 	rows, err := s.db.QueryContext(ctx, "SELECT metric_name, value_gauge, value_counter FROM "+tableName)
 	if err != nil {
 		return nil, err
 	}
+	// обязательно закрываем перед возвратом функции
+	defer rows.Close()
 	var gaugeValue sql.NullFloat64
 	var counterValue sql.NullInt64
 	var metricName string
@@ -112,10 +118,15 @@ func (s *DbStorage) GetAll(ctx context.Context) (map[MetricName]Metric, error) {
 			metrics[MetricName(metricName)] = NewMetricCounter(v)
 		}
 	}
+	// проверяем на ошибки
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
 	return metrics, nil
 }
 
-func (s *DbStorage) createTable(ctx context.Context) error {
+func (s *DBStorage) createTable(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS `+
 		tableName+
 		`(
@@ -131,7 +142,7 @@ func (s *DbStorage) createTable(ctx context.Context) error {
 	return nil
 }
 
-func (s *DbStorage) Close(ctx context.Context) error {
+func (s *DBStorage) Close(ctx context.Context) error {
 	err := s.db.Close()
 	if err != nil {
 		return err
