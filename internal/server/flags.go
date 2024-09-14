@@ -5,20 +5,30 @@ import (
 )
 
 func parseFlags() {
-	if serverAddress == "" {
-		flag.StringVar(&serverAddress, "a", "localhost:8080", "address and port to run server")
+
+	serverAddressFlag := flag.String("a", "localhost:8080", "address and port to run server")
+	if serverAddress == nil {
+		serverAddress = serverAddressFlag
 	}
+
+	storeIntervalFlag := flag.Int("i", 300, "interval for backuping data")
 	if storeInterval == nil {
-		storeInterval = flag.Int("i", 300, "interval for backuping data")
+		storeInterval = storeIntervalFlag
 	}
-	if fileStoragePath == "" {
-		flag.StringVar(&fileStoragePath, "f", "", "filepath to store backup data")
+
+	fileStoragePathFlag := flag.String("f", "", "filepath to store backup data")
+	if fileStoragePath == nil {
+		fileStoragePath = fileStoragePathFlag
 	}
+
+	restoreDataFlag := flag.Bool("r", true, "restore data on server start")
 	if restoreData == nil {
-		restoreData = flag.Bool("r", true, "restore data on server start")
+		restoreData = restoreDataFlag
 	}
+
+	databaseDsnFlag := flag.String("d", "", "database dsn")
 	if databaseDsn == nil {
-		databaseDsn = flag.String("d", "", "database dsn")
+		databaseDsn = databaseDsnFlag
 	}
 	flag.Parse()
 }

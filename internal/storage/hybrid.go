@@ -18,11 +18,11 @@ type HybridStorage struct {
 	backupActive  bool          //is backuping active or not, for internal usage
 }
 
-func NewHybridStorage(ctx context.Context, filename string, storeInterval *int, restore *bool) (storage *HybridStorage, err error) {
+func NewHybridStorage(ctx context.Context, filename *string, storeInterval *int, restore *bool) (storage *HybridStorage, err error) {
 	var file *os.File
 	backupActive := true
-	if filename != "" {
-		file, err = os.OpenFile(filename, os.O_CREATE|os.O_RDWR, 0666)
+	if *filename != "" {
+		file, err = os.OpenFile(*filename, os.O_CREATE|os.O_RDWR, 0666)
 		if err != nil {
 			return
 		}
