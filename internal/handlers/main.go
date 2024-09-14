@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -36,6 +37,7 @@ func (h APIHandler) GetRouter() chi.Router {
 		r.Post("/", h.ValueJSON)         //get metric value with json request
 		r.Get("/{type}/{name}", h.Value) //get metric value with url request
 	})
+	r.Post("/updates/", h.Updates) //batch updating
 	return r
 }
 
@@ -66,14 +68,11 @@ func (h APIHandler) Index(res http.ResponseWriter, req *http.Request) {
 }
 
 func (h APIHandler) ValueJSON(res http.ResponseWriter, req *http.Request) {
-
 	if req.Header.Get("Content-Type") != "application/json" {
 		http.Error(res, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
 		return
 	}
-
 	var reqMetric storage.Metrics
-
 	if err := json.NewDecoder(req.Body).Decode(&reqMetric); err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
@@ -83,7 +82,6 @@ func (h APIHandler) ValueJSON(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	metricName := storage.MetricName(reqMetric.ID)
-
 	metric, err := h.Storage.Get(req.Context(), metricName)
 	if err != nil {
 		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -166,22 +164,18 @@ func (h APIHandler) Update(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	metricType := storage.MetricType(mt)
-
 	mn := chi.URLParam(req, "name")
 	if mn == "" {
 		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
 	metricName := storage.MetricName(mn)
-
 	mv := chi.URLParam(req, "value")
 	if mv == "" {
 		http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
-
 	var value interface{}
-
 	switch metricType {
 	case storage.MetricTypeGauge:
 		if v, err := strconv.ParseFloat(mv, 64); err == nil {
@@ -198,7 +192,6 @@ func (h APIHandler) Update(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-
 	metric, err := h.Storage.Get(req.Context(), metricName)
 	if err != nil {
 		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -235,4 +228,58 @@ func (h APIHandler) Value(res http.ResponseWriter, req *http.Request) {
 	}
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	io.WriteString(res, m.String())
+}
+
+var ErrMetricType = errors.New("metric type is wrong")
+var ErrMetricName = errors.New("metric name is empty")
+
+// decode and validate metrics in batch request
+func decodeMetrics(body io.ReadCloser) (metrics []storage.Metrics, err error) {
+	decoder := json.NewDecoder(body)
+	_, err = decoder.Token()
+	if err != nil {
+		return
+	}
+	for decoder.More() {
+		var m storage.Metrics
+		if err = decoder.Decode(&m); err != nil {
+			return
+		}
+		if m.MType != string(storage.MetricTypeGauge) && m.MType != string(storage.MetricTypeCounter) {
+			err = ErrMetricType
+			return
+		}
+		if m.ID == "" {
+			err = ErrMetricName
+			return
+		}
+		metrics = append(metrics, m)
+	}
+	_, err = decoder.Token()
+	return
+}
+
+// batch updating
+func (h APIHandler) Updates(res http.ResponseWriter, req *http.Request) {
+	if req.Header.Get("Content-Type") != "application/json" {
+		http.Error(res, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
+		return
+	}
+	metrics, err := decodeMetrics(req.Body)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrMetricName):
+			http.Error(res, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		default:
+			http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		}
+		return
+	}
+	if err := h.Storage.BatchUpdate(req.Context(), metrics); err != nil {
+		logger.Log.Error("batch metrics update", zap.Error(err))
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	res.Header().Set("Content-Type", "application/json")
+	res.WriteHeader(http.StatusOK)
 }

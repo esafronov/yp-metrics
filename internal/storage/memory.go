@@ -1,6 +1,9 @@
 package storage
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 type MemStorage struct {
 	Values map[MetricName]Metric
@@ -32,5 +35,30 @@ func (s *MemStorage) GetAll(ctx context.Context) (map[MetricName]Metric, error) 
 }
 
 func (s *MemStorage) Close(ctx context.Context) error {
+	return nil
+}
+
+func (s *MemStorage) BatchUpdate(ctx context.Context, metrics []Metrics) error {
+	for _, m := range metrics {
+		metric, err := s.Get(ctx, MetricName(m.ID))
+		if err != nil {
+			return err
+		}
+		if metric != nil {
+			err = s.Update(ctx, MetricName(m.ID), m.ActualValue, metric)
+		} else {
+			switch val := m.ActualValue.(type) {
+			case int64:
+				err = s.Insert(ctx, MetricName(m.ID), NewMetricCounter(val))
+			case float64:
+				err = s.Insert(ctx, MetricName(m.ID), NewMetricGauge(val))
+			default:
+				err = fmt.Errorf("metric type unknown in batch update")
+			}
+		}
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }

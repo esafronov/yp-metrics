@@ -91,6 +91,65 @@ func (s *DBStorage) Update(ctx context.Context, key MetricName, v interface{}, m
 	return nil
 }
 
+func (s *DBStorage) BatchUpdate(ctx context.Context, metrics []Metrics) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	stmCount, err := tx.PrepareContext(ctx, "SELECT COUNT(*) FROM "+tableName+" WHERE metric_name=$1")
+	if err != nil {
+		return err
+	}
+	stmUpdGauge, err := tx.PrepareContext(ctx, "UPDATE "+tableName+" SET value_gauge=$1 WHERE metric_name=$2")
+	if err != nil {
+		return err
+	}
+	stmUpdCounter, err := tx.PrepareContext(ctx, "UPDATE "+tableName+" SET value_counter=value_counter+$1 WHERE metric_name=$2")
+	if err != nil {
+		return err
+	}
+	stmInsGauge, err := tx.PrepareContext(ctx, "INSERT INTO "+tableName+"(metric_name, metric_type, value_gauge) VALUES ($1, $2, $3)")
+	if err != nil {
+		return err
+	}
+	stmInsCounter, err := tx.PrepareContext(ctx, "INSERT INTO "+tableName+"(metric_name, metric_type, value_counter) VALUES ($1, $2, $3)")
+	if err != nil {
+		return err
+	}
+	var count int
+	for _, m := range metrics {
+		value := m.ActualValue
+		row := stmCount.QueryRowContext(ctx, m.ID)
+		if err := row.Scan(&count); err != nil {
+			return err
+		}
+		switch val := value.(type) {
+		case int64:
+			if count > 0 {
+				_, err = stmUpdCounter.ExecContext(ctx, val, m.ID)
+			} else {
+				_, err = stmInsCounter.ExecContext(ctx, m.ID, m.MType, val)
+			}
+		case float64:
+			if count > 0 {
+				_, err = stmUpdGauge.ExecContext(ctx, val, m.ID)
+			} else {
+				_, err = stmInsGauge.ExecContext(ctx, m.ID, m.MType, val)
+			}
+		default:
+			err = fmt.Errorf("metric type unknown in batch update")
+		}
+		if err != nil {
+			return err
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *DBStorage) GetAll(ctx context.Context) (map[MetricName]Metric, error) {
 	rows, err := s.db.QueryContext(ctx, "SELECT metric_name, value_gauge, value_counter FROM "+tableName)
 	if err != nil {
@@ -127,7 +186,13 @@ func (s *DBStorage) GetAll(ctx context.Context) (map[MetricName]Metric, error) {
 }
 
 func (s *DBStorage) createTable(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS `+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	// roll back if commit will fail
+	defer tx.Rollback()
+	tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS `+
 		tableName+
 		`(
 			id SERIAL,
@@ -136,8 +201,9 @@ func (s *DBStorage) createTable(ctx context.Context) error {
 			value_gauge DOUBLE PRECISION DEFAULT NULL,
 			value_counter BIGINT DEFAULT NULL
 		)`)
-	if err != nil {
-		return fmt.Errorf("create table %v", err)
+	tx.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS metric_name ON `+tableName+` (metric_name)`)
+	if err = tx.Commit(); err != nil {
+		return err
 	}
 	return nil
 }

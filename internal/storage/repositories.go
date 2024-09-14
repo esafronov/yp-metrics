@@ -3,14 +3,16 @@ package storage
 import "context"
 
 type Repositories interface {
-	//get entry
+	//get one entry
 	Get(context.Context, MetricName) (Metric, error)
-	//insert entry
+	//insert one entry
 	Insert(context.Context, MetricName, Metric) error
-	//update entry
+	//update one entry
 	Update(context.Context, MetricName, interface{}, Metric) error
 	//get all entries
 	GetAll(context.Context) (map[MetricName]Metric, error)
-	//close
+	//close repository
 	Close(context.Context) error
+	//update multiple entries
+	BatchUpdate(context.Context, []Metrics) error
 }

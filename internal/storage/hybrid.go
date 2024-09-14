@@ -53,8 +53,7 @@ func (s *HybridStorage) Insert(ctx context.Context, key MetricName, m Metric) er
 	if err != nil {
 		return err
 	}
-	s.backupCaller(ctx)
-	return nil
+	return s.backupCaller(ctx)
 }
 
 func (s *HybridStorage) Update(ctx context.Context, key MetricName, v interface{}, metric Metric) error {
@@ -62,17 +61,17 @@ func (s *HybridStorage) Update(ctx context.Context, key MetricName, v interface{
 	if err != nil {
 		return err
 	}
-	s.backupCaller(ctx)
-	return nil
+	return s.backupCaller(ctx)
 }
 
-func (s *HybridStorage) backupCaller(ctx context.Context) {
+func (s *HybridStorage) backupCaller(ctx context.Context) error {
 	if !s.backupActive {
-		return
+		return nil
 	}
 	if time.Since(s.lastStored).Seconds() > float64(s.storeInterval) {
-		s.Backup(ctx)
+		return s.Backup(ctx)
 	}
+	return nil
 }
 
 func (s *HybridStorage) Backup(ctx context.Context) error {
@@ -143,4 +142,12 @@ func (s *HybridStorage) Close(ctx context.Context) error {
 		return s.file.Close()
 	}
 	return nil
+}
+
+func (s *HybridStorage) BatchUpdate(ctx context.Context, metrics []Metrics) error {
+	err := s.MemStorage.BatchUpdate(ctx, metrics)
+	if err != nil {
+		return err
+	}
+	return s.backupCaller(ctx)
 }
