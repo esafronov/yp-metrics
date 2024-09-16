@@ -1,7 +1,6 @@
 package retry
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 )
@@ -12,10 +11,10 @@ func DoRequest(req *http.Request) (res *http.Response, err error) {
 		res, err = http.DefaultClient.Do(req)
 		if err != nil {
 			if n < len(retriesSchedule)-1 {
-				fmt.Printf("can't connect to server, retry after %s\r\n", t)
+				//fmt.Printf("can't connect to server, retry after %s\r\n", t)
 				time.Sleep(t)
 			} else {
-				fmt.Println("no more tries available, return")
+				//fmt.Println("no more tries available, return")
 			}
 			continue
 		}

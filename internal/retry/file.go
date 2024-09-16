@@ -1,7 +1,6 @@
 package retry
 
 import (
-	"fmt"
 	"os"
 	"time"
 )
@@ -12,10 +11,10 @@ func OpenFile(filename string) (file *os.File, err error) {
 		file, err = os.OpenFile(filename, os.O_CREATE|os.O_RDWR, 0666)
 		if err != nil {
 			if n < len(retriesSchedule)-1 {
-				fmt.Printf("can't open file %s, retry after %s\r\n", filename, t)
+				//fmt.Printf("can't open file %s, retry after %s\r\n", filename, t)
 				time.Sleep(t)
 			} else {
-				fmt.Println("no more tries available, return")
+				//fmt.Println("no more tries available, return")
 			}
 			continue
 		}
