@@ -13,8 +13,6 @@ func OpenFile(filename string) (file *os.File, err error) {
 			if n < len(retriesSchedule)-1 {
 				//fmt.Printf("can't open file %s, retry after %s\r\n", filename, t)
 				time.Sleep(t)
-			} else {
-				//fmt.Println("no more tries available, return")
 			}
 			continue
 		}

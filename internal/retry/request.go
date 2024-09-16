@@ -13,8 +13,6 @@ func DoRequest(req *http.Request) (res *http.Response, err error) {
 			if n < len(retriesSchedule)-1 {
 				//fmt.Printf("can't connect to server, retry after %s\r\n", t)
 				time.Sleep(t)
-			} else {
-				//fmt.Println("no more tries available, return")
 			}
 			continue
 		}
