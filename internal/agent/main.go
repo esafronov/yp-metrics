@@ -13,6 +13,7 @@ import (
 	"runtime"
 
 	"github.com/esafronov/yp-metrics/internal/compress"
+	"github.com/esafronov/yp-metrics/internal/retry"
 	"github.com/esafronov/yp-metrics/internal/storage"
 )
 
@@ -65,7 +66,7 @@ func (a *Agent) SendReport() error {
 	var reqMetric *storage.Metrics
 	items, err := a.storage.GetAll(context.Background())
 	if err != nil {
-		return fmt.Errorf("cannot get metrics %s", err)
+		return fmt.Errorf("cannot get metrics %w", err)
 	}
 	for metricName, v := range items {
 		url := a.serverAddress + "/update/"
@@ -75,23 +76,23 @@ func (a *Agent) SendReport() error {
 		}
 		marshaled, err := json.Marshal(reqMetric)
 		if err != nil {
-			return fmt.Errorf("marshal error %s", err)
+			return fmt.Errorf("marshal error %w", err)
 		}
 		var data bytes.Buffer
 		err = compress.GzipToBuffer(marshaled, &data)
 		if err != nil {
-			return fmt.Errorf("failed compress request %s", err)
+			return fmt.Errorf("failed compress request %w", err)
 		}
 		req, err := http.NewRequest(http.MethodPost, url, &data)
 		if err != nil {
-			return fmt.Errorf("post request: %s", err)
+			return fmt.Errorf("new request: %w", err)
 		}
 		//header Accept-Encoding : gzip will be added automatically, so not need to add
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Content-Encoding", "gzip")
-		res, err := http.DefaultClient.Do(req)
+		res, err := retry.DoRequest(req)
 		if err != nil {
-			return fmt.Errorf("post request: %s", err)
+			return fmt.Errorf("do request: %w", err)
 		}
 		defer res.Body.Close()
 		if res.StatusCode != http.StatusOK {
@@ -104,9 +105,10 @@ func (a *Agent) SendReport() error {
 // send metrics in batch
 func (a *Agent) SendReportInBatch() error {
 	var reqMetrics []storage.Metrics
+
 	items, err := a.storage.GetAll(context.Background())
 	if err != nil {
-		return fmt.Errorf("cannot get metrics %s", err)
+		return fmt.Errorf("cannot get metrics %w", err)
 	}
 	for metricName, v := range items {
 		reqMetrics = append(reqMetrics, storage.Metrics{
@@ -116,23 +118,23 @@ func (a *Agent) SendReportInBatch() error {
 	}
 	encodedData, err := json.Marshal(reqMetrics)
 	if err != nil {
-		return fmt.Errorf("marshal error %s", err)
+		return fmt.Errorf("marshal error %w", err)
 	}
 	var compressedData bytes.Buffer
 	err = compress.GzipToBuffer(encodedData, &compressedData)
 	if err != nil {
-		return fmt.Errorf("failed compress request %s", err)
+		return fmt.Errorf("failed compress request %w", err)
 	}
 	req, err := http.NewRequest(http.MethodPost, a.serverAddress+"/updates/", &compressedData)
 	if err != nil {
-		return fmt.Errorf("post request: %s", err)
+		return fmt.Errorf("new request: %w", err)
 	}
 	//header Accept-Encoding : gzip will be added automatically, so not need to add
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
-	res, err := http.DefaultClient.Do(req)
+	res, err := retry.DoRequest(req)
 	if err != nil {
-		return fmt.Errorf("post request: %s", err)
+		return fmt.Errorf("do request: %w", err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
@@ -141,7 +143,7 @@ func (a *Agent) SendReportInBatch() error {
 	return nil
 }
 
-var serverAddress string
+var serverAddress *string
 var pollInterval *int
 var reportInterval *int
 
@@ -153,7 +155,7 @@ func Run() {
 	parseFlags()
 	a := &Agent{
 		storage:       storage.NewMemStorage(),
-		serverAddress: "http://" + serverAddress,
+		serverAddress: "http://" + *serverAddress,
 	}
 	timeStamp := time.Now()
 	for {

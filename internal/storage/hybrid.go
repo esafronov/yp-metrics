@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/esafronov/yp-metrics/internal/retry"
 )
 
 type HybridStorage struct {
@@ -22,7 +24,7 @@ func NewHybridStorage(ctx context.Context, filename *string, storeInterval *int,
 	var file *os.File
 	backupActive := true
 	if *filename != "" {
-		file, err = os.OpenFile(*filename, os.O_CREATE|os.O_RDWR, 0666)
+		file, err = retry.OpenFile(*filename)
 		if err != nil {
 			return
 		}
