@@ -201,7 +201,7 @@ func (s *DBStorage) createTable(ctx context.Context) error {
 			value_gauge DOUBLE PRECISION DEFAULT NULL,
 			value_counter BIGINT DEFAULT NULL
 		)`)
-	tx.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS metric_name ON `+tableName+` (metric_name)`)
+	tx.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS metric_name ON `+tableName+` (metric_name)`)
 	if err = tx.Commit(); err != nil {
 		return err
 	}
