@@ -8,6 +8,7 @@ type envParams struct {
 	Address        *string `env:"ADDRESS"`
 	ReportInterval *int    `env:"REPORT_INTERVAL"`
 	PollInterval   *int    `env:"POLL_INTERVAL"`
+	SecretKey      *string `env:"KEY"`
 }
 
 func parseEnv() error {
@@ -18,5 +19,6 @@ func parseEnv() error {
 	serverAddress = p.Address
 	reportInterval = p.ReportInterval
 	pollInterval = p.PollInterval
+	secretKey = p.SecretKey
 	return nil
 }

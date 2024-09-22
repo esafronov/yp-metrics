@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/esafronov/yp-metrics/internal/compress"
+	"github.com/esafronov/yp-metrics/internal/signing"
 	"github.com/esafronov/yp-metrics/internal/storage"
 	"github.com/stretchr/testify/require"
 )
@@ -204,6 +205,7 @@ func TestAgent_SendReport(t *testing.T) {
 }
 
 func TestAgent_SendReportInBatch(t *testing.T) {
+
 	type request struct {
 		path string
 		body string
@@ -215,12 +217,14 @@ func TestAgent_SendReportInBatch(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		a    *Agent
-		want want
+		name      string
+		secretKey string
+		a         *Agent
+		want      want
 	}{
 		{
-			name: "send gauge Lookups 1.200000",
+			name:      "send gauge Lookups 1.200000",
+			secretKey: "mypass",
 			a: &Agent{
 				storage: &storage.MemStorage{
 					Values: map[storage.MetricName]storage.Metric{
@@ -246,7 +250,8 @@ func TestAgent_SendReportInBatch(t *testing.T) {
 			},
 		},
 		{
-			name: "send counter PollCount 1",
+			name:      "send counter PollCount 1",
+			secretKey: "",
 			a: &Agent{
 				storage: &storage.MemStorage{
 					Values: map[storage.MetricName]storage.Metric{
@@ -279,13 +284,22 @@ func TestAgent_SendReportInBatch(t *testing.T) {
 				require.Equal(t, tt.want.contentType, req.Header.Get("Content-Type"))
 				require.Equal(t, tt.want.request.path, req.URL.String())
 				body, err := io.ReadAll(req.Body)
-				require.Nil(t, err, "error reading request body")
+				require.NoError(t, err, "error reading request body")
+				//if secretKey is not empty then we should get signature from agent and check it is valid
+				if tt.secretKey != "" {
+					signature := req.Header.Get(signing.HEADER_SIGNATURE_KEY)
+					require.NotEmpty(t, signature, "signature should not be empty")
+					isValid := signing.IsValid(signature, body, tt.secretKey)
+					require.True(t, isValid, "signature is not valid")
+				}
 				require.JSONEq(t, tt.want.request.body, string(body))
 			})))
 			// Close the server when test finishes
 			defer server.Close()
+			secretKey = &tt.secretKey
 			tt.a.serverAddress = server.URL
-			tt.a.SendReportInBatch()
+			err := tt.a.SendReportInBatch()
+			require.NoError(t, err)
 		})
 	}
 }

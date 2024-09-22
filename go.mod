@@ -18,6 +18,7 @@ require (
 	github.com/caarlos0/env/v6 v6.10.1
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-chi/chi/v5 v5.1.0
+	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/jackc/pgx/v5 v5.7.1
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	go.uber.org/zap v1.27.0

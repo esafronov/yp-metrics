@@ -19,6 +19,7 @@ var storeInterval *int      //store interval
 var fileStoragePath *string //file storage path
 var restoreData *bool       //restore or not data on start
 var databaseDsn *string     //db connection dsn
+var secretKey *string       //secret key for signature check
 
 func Run() error {
 	if err := parseEnv(); err != nil {
@@ -52,7 +53,7 @@ func Run() error {
 			fmt.Printf("storage can't be closed %s", err)
 		}
 	}()
-	h := handlers.NewAPIHandler(storageInst)
+	h := handlers.NewAPIHandler(storageInst, *secretKey)
 	srv := http.Server{
 		Addr:    *serverAddress,
 		Handler: h.GetRouter(),
@@ -69,5 +70,6 @@ func Run() error {
 	fmt.Println("storage interval:", *storeInterval)
 	fmt.Println("restore flag:", *restoreData)
 	fmt.Println("database dsn:", *databaseDsn)
+	fmt.Println("key:", *secretKey)
 	return srv.ListenAndServe()
 }

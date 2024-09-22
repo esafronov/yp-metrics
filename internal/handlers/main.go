@@ -10,17 +10,19 @@ import (
 	"github.com/esafronov/yp-metrics/internal/compress"
 	"github.com/esafronov/yp-metrics/internal/logger"
 	"github.com/esafronov/yp-metrics/internal/pg"
+	"github.com/esafronov/yp-metrics/internal/signing"
 	"github.com/esafronov/yp-metrics/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
 
 type APIHandler struct {
-	Storage storage.Repositories
+	Storage   storage.Repositories //repository
+	secretKey string               //secret key for request signature validation
 }
 
-func NewAPIHandler(s storage.Repositories) *APIHandler {
-	return &APIHandler{Storage: s}
+func NewAPIHandler(s storage.Repositories, secretKey string) *APIHandler {
+	return &APIHandler{Storage: s, secretKey: secretKey}
 }
 
 func (h APIHandler) GetRouter() chi.Router {
@@ -37,7 +39,10 @@ func (h APIHandler) GetRouter() chi.Router {
 		r.Post("/", h.ValueJSON)         //get metric value with json request
 		r.Get("/{type}/{name}", h.Value) //get metric value with url request
 	})
-	r.Post("/updates/", h.Updates) //batch updating
+	r.Route("/updates", func(r chi.Router) {
+		r.Use(signing.ValidateSignature(h.secretKey))
+		r.Post("/", h.Updates) //batch updating
+	})
 	return r
 }
 

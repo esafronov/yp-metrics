@@ -17,5 +17,9 @@ func parseFlags() {
 	if reportInterval == nil {
 		reportInterval = reportIntervalFlag
 	}
+	secretKeyFlag := flag.String("k", "", "secret key for request signing")
+	if secretKey == nil {
+		secretKey = secretKeyFlag
+	}
 	flag.Parse()
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/esafronov/yp-metrics/internal/compress"
 	"github.com/esafronov/yp-metrics/internal/retry"
+	"github.com/esafronov/yp-metrics/internal/signing"
 	"github.com/esafronov/yp-metrics/internal/storage"
 )
 
@@ -125,9 +126,18 @@ func (a *Agent) SendReportInBatch() error {
 	if err != nil {
 		return fmt.Errorf("failed compress request %w", err)
 	}
+
 	req, err := http.NewRequest(http.MethodPost, a.serverAddress+"/updates/", &compressedData)
 	if err != nil {
 		return fmt.Errorf("new request: %w", err)
+	}
+	//if secretKey is not empty we calc hash from request body and send it with header
+	if *secretKey != "" {
+		signature, err := signing.Sign(encodedData, *secretKey)
+		if err != nil {
+			return fmt.Errorf("signing request : %w", err)
+		}
+		req.Header.Set(signing.HEADER_SIGNATURE_KEY, signature)
 	}
 	//header Accept-Encoding : gzip will be added automatically, so not need to add
 	req.Header.Set("Content-Type", "application/json")
@@ -146,6 +156,7 @@ func (a *Agent) SendReportInBatch() error {
 var serverAddress *string
 var pollInterval *int
 var reportInterval *int
+var secretKey *string
 
 func Run() {
 	if err := parseEnv(); err != nil {
