@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -9,13 +10,15 @@ import (
 
 	"github.com/esafronov/yp-metrics/internal/handlers"
 	"github.com/esafronov/yp-metrics/internal/logger"
+	"github.com/esafronov/yp-metrics/internal/pg"
 	"github.com/esafronov/yp-metrics/internal/storage"
 )
 
-var serverAddress string   //server address to listen
-var storeInterval *int     //store interval
-var fileStoragePath string //file storage path
-var restoreData *bool      //restore or not data on start
+var serverAddress *string   //server address to listen
+var storeInterval *int      //store interval
+var fileStoragePath *string //file storage path
+var restoreData *bool       //restore or not data on start
+var databaseDsn *string     //db connection dsn
 
 func Run() error {
 	if err := parseEnv(); err != nil {
@@ -26,19 +29,32 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	storage, err := storage.NewHybridStorage(fileStoragePath, storeInterval, restoreData)
+	err = pg.Connect(databaseDsn)
 	if err != nil {
 		return err
 	}
+	ctx := context.Background()
+	var storageInst storage.Repositories
+	if *databaseDsn == "" {
+		storageInst, err = storage.NewHybridStorage(ctx, fileStoragePath, storeInterval, restoreData)
+		if err != nil {
+			return err
+		}
+	} else {
+		storageInst, err = storage.NewDBStorage(ctx, pg.DB)
+		if err != nil {
+			return err
+		}
+	}
 	defer func() {
-		err := storage.Close()
+		err := storageInst.Close(ctx)
 		if err != nil {
 			fmt.Printf("storage can't be closed %s", err)
 		}
 	}()
-	h := handlers.NewAPIHandler(storage)
+	h := handlers.NewAPIHandler(storageInst)
 	srv := http.Server{
-		Addr:    serverAddress,
+		Addr:    *serverAddress,
 		Handler: h.GetRouter(),
 	}
 	go func() {
@@ -48,9 +64,10 @@ func Run() error {
 		fmt.Println("got signal ", s)
 		srv.Close()
 	}()
-	fmt.Printf("listen on address: %s\r\n", serverAddress)
-	fmt.Println("file storage:", fileStoragePath)
+	fmt.Printf("listen on address: %s\r\n", *serverAddress)
+	fmt.Println("file storage:", *fileStoragePath)
 	fmt.Println("storage interval:", *storeInterval)
 	fmt.Println("restore flag:", *restoreData)
+	fmt.Println("database dsn:", *databaseDsn)
 	return srv.ListenAndServe()
 }

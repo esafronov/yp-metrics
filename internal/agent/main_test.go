@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -108,8 +110,9 @@ func TestAgent_StoreStat(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
 			tt.a.StoreStat()
-			m := tt.a.storage.Get(tt.want.metricName)
+			m, _ := tt.a.storage.Get(ctx, tt.want.metricName)
 			require.NotNil(t, m, "Метрика не найдена в хранилище по ключу %s", tt.want.metricName)
 			mv := m.GetValue()
 			switch m.(type) {
@@ -189,12 +192,100 @@ func TestAgent_SendReport(t *testing.T) {
 				require.Equal(t, tt.want.request.path, req.URL.String())
 				body, err := io.ReadAll(req.Body)
 				require.Nil(t, err, "error reading request body")
+				fmt.Println(string(body))
 				require.JSONEq(t, tt.want.request.body, string(body))
 			})))
 			// Close the server when test finishes
 			defer server.Close()
 			tt.a.serverAddress = server.URL
 			tt.a.SendReport()
+		})
+	}
+}
+
+func TestAgent_SendReportInBatch(t *testing.T) {
+	type request struct {
+		path string
+		body string
+	}
+
+	type want struct {
+		contentType string
+		request     *request
+	}
+
+	tests := []struct {
+		name string
+		a    *Agent
+		want want
+	}{
+		{
+			name: "send gauge Lookups 1.200000",
+			a: &Agent{
+				storage: &storage.MemStorage{
+					Values: map[storage.MetricName]storage.Metric{
+						"Lookups": storage.NewMetricGauge(float64(1.200000)),
+						"Test":    storage.NewMetricGauge(float64(1.0002)),
+					},
+				},
+			},
+			want: want{
+				contentType: "application/json",
+				request: &request{
+					path: "/updates/",
+					body: `[{
+						"id" : "Lookups",
+						"type" : "gauge",
+						"value" : 1.200000
+					},{
+						"id" : "Test",
+						"type" : "gauge",
+						"value" : 1.0002
+					}]`,
+				},
+			},
+		},
+		{
+			name: "send counter PollCount 1",
+			a: &Agent{
+				storage: &storage.MemStorage{
+					Values: map[storage.MetricName]storage.Metric{
+						"PollCount": storage.NewMetricCounter(int64(1)),
+						"testCount": storage.NewMetricCounter(int64(2)),
+					},
+				},
+			},
+			want: want{
+				contentType: "application/json",
+				request: &request{
+					path: "/updates/",
+					body: `[{
+						"id" : "PollCount",
+						"type" : "counter",
+						"delta" : 1
+					},{
+						"id" : "testCount",
+						"type" : "counter",
+						"delta" : 2
+					}]`,
+				},
+			},
+		},
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(compress.GzipCompressing(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				require.Equal(t, tt.want.contentType, req.Header.Get("Content-Type"))
+				require.Equal(t, tt.want.request.path, req.URL.String())
+				body, err := io.ReadAll(req.Body)
+				require.Nil(t, err, "error reading request body")
+				require.JSONEq(t, tt.want.request.body, string(body))
+			})))
+			// Close the server when test finishes
+			defer server.Close()
+			tt.a.serverAddress = server.URL
+			tt.a.SendReportInBatch()
 		})
 	}
 }

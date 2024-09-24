@@ -1,10 +1,13 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/esafronov/yp-metrics/internal/retry"
 )
 
 type HybridStorage struct {
@@ -17,12 +20,11 @@ type HybridStorage struct {
 	backupActive  bool          //is backuping active or not, for internal usage
 }
 
-func NewHybridStorage(filename string, storeInterval *int, restore *bool) (storage *HybridStorage, err error) {
+func NewHybridStorage(ctx context.Context, filename *string, storeInterval *int, restore *bool) (storage *HybridStorage, err error) {
 	var file *os.File
-	//if filename is not empty we open it
 	backupActive := true
-	if filename != "" {
-		file, err = os.OpenFile(filename, os.O_CREATE|os.O_RDWR, 0666)
+	if *filename != "" {
+		file, err = retry.OpenFile(*filename)
 		if err != nil {
 			return
 		}
@@ -43,31 +45,38 @@ func NewHybridStorage(filename string, storeInterval *int, restore *bool) (stora
 		backupActive:  backupActive,
 	}
 	if *restore {
-		err = storage.Restore()
+		err = storage.Restore(ctx)
 	}
 	return
 }
 
-func (s *HybridStorage) Insert(key MetricName, m Metric) {
-	s.MemStorage.Insert(key, m)
-	s.backupCaller()
+func (s *HybridStorage) Insert(ctx context.Context, key MetricName, m Metric) error {
+	err := s.MemStorage.Insert(ctx, key, m)
+	if err != nil {
+		return err
+	}
+	return s.backupCaller(ctx)
 }
 
-func (s *HybridStorage) Update(key MetricName, v interface{}) {
-	s.MemStorage.Update(key, v)
-	s.backupCaller()
+func (s *HybridStorage) Update(ctx context.Context, key MetricName, v interface{}, metric Metric) error {
+	err := s.MemStorage.Update(ctx, key, v, metric)
+	if err != nil {
+		return err
+	}
+	return s.backupCaller(ctx)
 }
 
-func (s *HybridStorage) backupCaller() {
+func (s *HybridStorage) backupCaller(ctx context.Context) error {
 	if !s.backupActive {
-		return
+		return nil
 	}
 	if time.Since(s.lastStored).Seconds() > float64(s.storeInterval) {
-		s.Backup()
+		return s.Backup(ctx)
 	}
+	return nil
 }
 
-func (s *HybridStorage) Backup() error {
+func (s *HybridStorage) Backup(ctx context.Context) error {
 	//truncate file before writing new data
 	err := s.file.Truncate(0)
 	if err != nil {
@@ -78,7 +87,11 @@ func (s *HybridStorage) Backup() error {
 		return err
 	}
 	s.lastStored = time.Now()
-	for key, value := range s.GetAll() {
+	items, err := s.GetAll(ctx)
+	if err != nil {
+		return err
+	}
+	for key, value := range items {
 		err = s.encoder.Encode(&Metrics{
 			ID:          string(key),
 			ActualValue: value.GetValue(),
@@ -90,7 +103,7 @@ func (s *HybridStorage) Backup() error {
 	return nil
 }
 
-func (s *HybridStorage) Restore() error {
+func (s *HybridStorage) Restore(ctx context.Context) error {
 	if !s.backupActive {
 		return nil
 	}
@@ -103,9 +116,15 @@ func (s *HybridStorage) Restore() error {
 		}
 		switch metric.ActualValue.(type) {
 		case int64:
-			s.Insert(MetricName(metric.ID), NewMetricCounter(metric.ActualValue))
+			err := s.Insert(ctx, MetricName(metric.ID), NewMetricCounter(metric.ActualValue))
+			if err != nil {
+				return err
+			}
 		case float64:
-			s.Insert(MetricName(metric.ID), NewMetricGauge(metric.ActualValue))
+			err := s.Insert(ctx, MetricName(metric.ID), NewMetricGauge(metric.ActualValue))
+			if err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("metric type is unknown")
 		}
@@ -114,10 +133,10 @@ func (s *HybridStorage) Restore() error {
 	return nil
 }
 
-func (s *HybridStorage) Close() error {
+func (s *HybridStorage) Close(ctx context.Context) error {
 	if s.backupActive {
 		fmt.Println("make final backup before shutdown")
-		if err := s.Backup(); err != nil {
+		if err := s.Backup(ctx); err != nil {
 			return err
 		}
 	}
@@ -125,4 +144,12 @@ func (s *HybridStorage) Close() error {
 		return s.file.Close()
 	}
 	return nil
+}
+
+func (s *HybridStorage) BatchUpdate(ctx context.Context, metrics []Metrics) error {
+	err := s.MemStorage.BatchUpdate(ctx, metrics)
+	if err != nil {
+		return err
+	}
+	return s.backupCaller(ctx)
 }

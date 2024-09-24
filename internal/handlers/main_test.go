@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -244,7 +245,8 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 				body, err := io.ReadAll(result.Body)
 				require.NoError(t, err)
 				require.JSONEq(t, tt.want.body, string(body))
-				m := h.Storage.Get(tt.want.metricname)
+				m, err := h.Storage.Get(context.Background(), tt.want.metricname)
+				require.NoError(t, err, "ошибка получения метрики")
 				require.NotNil(t, m, "отправленная метрика не найдена в хранилище")
 				require.Equal(t, tt.want.metric, m, "метрика в хранилище не соответствует ожидаемой")
 			}
