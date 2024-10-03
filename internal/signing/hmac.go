@@ -9,7 +9,7 @@ import (
 	"net/http"
 )
 
-const HEADER_SIGNATURE_KEY = "HashSHA256"
+const HeaderSignatureKey = "HashSHA256"
 
 // get hmac signature in hexadecimal format for body
 func Sign(body []byte, key string) (signature string, err error) {
@@ -43,7 +43,7 @@ func ValidateSignature(secretKey string) func(h http.Handler) http.Handler {
 			sw := w
 			//if secret key is not empty, we make validation of signature
 			if secretKey != "" {
-				signature := r.Header.Get(HEADER_SIGNATURE_KEY)
+				signature := r.Header.Get(HeaderSignatureKey)
 				if signature == "" {
 					w.WriteHeader(http.StatusBadRequest)
 					return
@@ -104,7 +104,7 @@ func (w *SigningResponseWriter) WriteHeader(statusCode int) {
 			w.rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		w.rw.Header().Set(HEADER_SIGNATURE_KEY, signature)
+		w.rw.Header().Set(HeaderSignatureKey, signature)
 	}
 	w.rw.WriteHeader(statusCode)
 }

@@ -153,7 +153,7 @@ func TestAgent_SendMetrics(t *testing.T) {
 				//fmt.Println(string(body))
 				//if secretKey is not empty then we should get signature from agent and check it is valid
 				if tt.secretKey != "" {
-					signature := req.Header.Get(signing.HEADER_SIGNATURE_KEY)
+					signature := req.Header.Get(signing.HeaderSignatureKey)
 					require.NotEmpty(t, signature, "signature should not be empty")
 					isValid := signing.IsValid(signature, body, tt.secretKey)
 					require.True(t, isValid, "signature is not valid")

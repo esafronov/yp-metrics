@@ -90,7 +90,7 @@ func (a *Agent) sendReportInBatch(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("signing request : %w", err)
 		}
-		req.Header.Set(signing.HEADER_SIGNATURE_KEY, signature)
+		req.Header.Set(signing.HeaderSignatureKey, signature)
 	}
 	//header Accept-Encoding : gzip will be added automatically, so not need to add
 	req.Header.Set("Content-Type", "application/json")

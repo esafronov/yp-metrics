@@ -262,7 +262,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 			if tt.request.secret != "" {
 				signature, err := signing.Sign([]byte(tt.request.body), tt.request.secret)
 				require.NoError(t, err, "error signing request for agent")
-				req.Header.Set(signing.HEADER_SIGNATURE_KEY, signature)
+				req.Header.Set(signing.HeaderSignatureKey, signature)
 			}
 
 			result, err := ts.Client().Do(req)
