@@ -21,5 +21,9 @@ func parseFlags() {
 	if secretKey == nil {
 		secretKey = secretKeyFlag
 	}
+	rateLimitFlag := flag.Int("l", 0, "max parallel request limit, 0 = send in batch")
+	if rateLimit == nil {
+		rateLimit = rateLimitFlag
+	}
 	flag.Parse()
 }

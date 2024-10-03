@@ -9,6 +9,7 @@ type envParams struct {
 	ReportInterval *int    `env:"REPORT_INTERVAL"`
 	PollInterval   *int    `env:"POLL_INTERVAL"`
 	SecretKey      *string `env:"KEY"`
+	RateLimit      *int    `env:"RATE_LIMIT"`
 }
 
 func parseEnv() error {
@@ -20,5 +21,6 @@ func parseEnv() error {
 	reportInterval = p.ReportInterval
 	pollInterval = p.PollInterval
 	secretKey = p.SecretKey
+	rateLimit = p.RateLimit
 	return nil
 }

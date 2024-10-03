@@ -1,162 +1,40 @@
 package agent
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"math/rand"
-	"net/http"
-	"time"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"reflect"
 	"runtime"
 
-	"github.com/esafronov/yp-metrics/internal/compress"
-	"github.com/esafronov/yp-metrics/internal/retry"
-	"github.com/esafronov/yp-metrics/internal/signing"
+	"github.com/esafronov/yp-metrics/internal/logger"
 	"github.com/esafronov/yp-metrics/internal/storage"
 )
 
 type Agent struct {
-	storage       storage.Repositories
-	serverAddress string
-	memStats      runtime.MemStats
+	storage       storage.Repositories //storage for metrics
+	serverAddress string               //server address to send report
+	memStats      runtime.MemStats     //mem stat
+	chUpdate      chan storage.Metrics //channel for metrics should be updated in repository
+	chSend        chan storage.Metrics //channel for metrics should be send to server
 }
 
-func (a *Agent) ReadStat() {
-	runtime.ReadMemStats(&a.memStats)
-}
-
-func (a *Agent) StoreStat() {
-	r := reflect.ValueOf(a.memStats)
-	ctx := context.Background()
-	for _, metricName := range storage.GetGaugeMetrics() {
-		rv := reflect.Indirect(r).FieldByName(string(metricName))
-		var v interface{}
-		if rv.CanUint() {
-			v = float64(rv.Uint())
-		} else if rv.CanFloat() {
-			v = rv.Float()
-		}
-		metric, _ := a.storage.Get(ctx, metricName)
-		if metric != nil {
-			a.storage.Update(ctx, metricName, v, metric)
-		} else {
-			a.storage.Insert(ctx, metricName, storage.NewMetricGauge(v))
-		}
-	}
-	metric, _ := a.storage.Get(ctx, storage.MetricNamePollCount)
-	if metric != nil {
-		a.storage.Update(ctx, storage.MetricNamePollCount, int64(1), metric)
-	} else {
-		a.storage.Insert(ctx, storage.MetricNamePollCount, storage.NewMetricCounter(int64(1)))
-	}
-
-	rn := rand.New(rand.NewSource(time.Now().UnixNano()))
-	metric, _ = a.storage.Get(ctx, storage.MetricNameRandomValue)
-	if metric != nil {
-		a.storage.Update(ctx, storage.MetricNameRandomValue, rn.Float64(), metric)
-	} else {
-		a.storage.Insert(ctx, storage.MetricNameRandomValue, storage.NewMetricGauge(rn.Float64()))
+func NewAgent(s storage.Repositories, serverAddress string) *Agent {
+	return &Agent{
+		storage:       s,
+		serverAddress: serverAddress,
+		chUpdate:      make(chan storage.Metrics, 20),
+		chSend:        make(chan storage.Metrics, 20),
 	}
 }
 
-// send metrics one by one
-func (a *Agent) SendReport() error {
-	var reqMetric *storage.Metrics
-	items, err := a.storage.GetAll(context.Background())
-	if err != nil {
-		return fmt.Errorf("cannot get metrics %w", err)
-	}
-	for metricName, v := range items {
-		url := a.serverAddress + "/update/"
-		reqMetric = &storage.Metrics{
-			ID:          string(metricName),
-			ActualValue: v.GetValue(),
-		}
-		marshaled, err := json.Marshal(reqMetric)
-		if err != nil {
-			return fmt.Errorf("marshal error %w", err)
-		}
-		var data bytes.Buffer
-		err = compress.GzipToBuffer(marshaled, &data)
-		if err != nil {
-			return fmt.Errorf("failed compress request %w", err)
-		}
-		req, err := http.NewRequest(http.MethodPost, url, &data)
-		if err != nil {
-			return fmt.Errorf("new request: %w", err)
-		}
-		//header Accept-Encoding : gzip will be added automatically, so not need to add
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Content-Encoding", "gzip")
-		res, err := retry.DoRequest(req)
-		if err != nil {
-			return fmt.Errorf("do request: %w", err)
-		}
-		defer res.Body.Close()
-		if res.StatusCode != http.StatusOK {
-			return fmt.Errorf("response status: %d", res.StatusCode)
-		}
-	}
-	return nil
-}
-
-// send metrics in batch
-func (a *Agent) SendReportInBatch() error {
-	var reqMetrics []storage.Metrics
-
-	items, err := a.storage.GetAll(context.Background())
-	if err != nil {
-		return fmt.Errorf("cannot get metrics %w", err)
-	}
-	for metricName, v := range items {
-		reqMetrics = append(reqMetrics, storage.Metrics{
-			ID:          string(metricName),
-			ActualValue: v.GetValue(),
-		})
-	}
-	encodedData, err := json.Marshal(reqMetrics)
-	if err != nil {
-		return fmt.Errorf("marshal error %w", err)
-	}
-	var compressedData bytes.Buffer
-	err = compress.GzipToBuffer(encodedData, &compressedData)
-	if err != nil {
-		return fmt.Errorf("failed compress request %w", err)
-	}
-
-	req, err := http.NewRequest(http.MethodPost, a.serverAddress+"/updates/", &compressedData)
-	if err != nil {
-		return fmt.Errorf("new request: %w", err)
-	}
-	//if secretKey is not empty we calc hash from request body and send it with header
-	if *secretKey != "" {
-		signature, err := signing.Sign(encodedData, *secretKey)
-		if err != nil {
-			return fmt.Errorf("signing request : %w", err)
-		}
-		req.Header.Set(signing.HEADER_SIGNATURE_KEY, signature)
-	}
-	//header Accept-Encoding : gzip will be added automatically, so not need to add
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Content-Encoding", "gzip")
-	res, err := retry.DoRequest(req)
-	if err != nil {
-		return fmt.Errorf("do request: %w", err)
-	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("response status: %d", res.StatusCode)
-	}
-	return nil
-}
-
-var serverAddress *string
-var pollInterval *int
-var reportInterval *int
-var secretKey *string
+var serverAddress *string //server address
+var pollInterval *int     //interval to poll metrics
+var reportInterval *int   //send report interval
+var secretKey *string     //secretKey
+var rateLimit *int        //parallel request limit
 
 func Run() {
 	if err := parseEnv(); err != nil {
@@ -164,21 +42,27 @@ func Run() {
 		return
 	}
 	parseFlags()
-	a := &Agent{
-		storage:       storage.NewMemStorage(),
-		serverAddress: "http://" + *serverAddress,
+	err := logger.Initialize("debug")
+	if err != nil {
+		fmt.Println("can't init logger", err)
+		return
 	}
-	timeStamp := time.Now()
-	for {
-		time.Sleep(time.Duration(*pollInterval) * time.Second)
-		a.ReadStat()
-		a.StoreStat()
-		if time.Since(timeStamp).Seconds() >= float64(*reportInterval) {
-			timeStamp = time.Now()
-			if err := a.SendReportInBatch(); err != nil {
-				fmt.Println(err.Error())
-				continue
-			}
-		}
-	}
+	a := NewAgent(storage.NewMemStorage(), "http://"+*serverAddress)
+	ctx, cancel := context.WithCancel(context.Background())
+	a.CollectMetrics(ctx, pollInterval)
+	go func() {
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
+		s := <-sigs
+		fmt.Println("got signal ", s)
+		cancel()
+	}()
+	fmt.Println("report to:", *serverAddress)
+	fmt.Println("report interval:", *reportInterval)
+	fmt.Println("poll interval:", *pollInterval)
+	fmt.Println("key:", *secretKey)
+	fmt.Println("rate limit:", *rateLimit)
+	a.UpdateMetrics(ctx)
+	a.SendMetrics(ctx, reportInterval, rateLimit)
+	fmt.Println("exit")
 }
