@@ -30,13 +30,13 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		storage storage.MemStorage
+		storage *storage.MemStorage
 		request *request
 		want    want
 	}{
 		{
 			name: "positive update gauge sequence",
-			storage: storage.MemStorage{
+			storage: &storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{
 					"test": storage.NewMetricGauge(float64(1.2)),
 				},
@@ -63,7 +63,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 		},
 		{
 			name: "positive update counter sequence",
-			storage: storage.MemStorage{
+			storage: &storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{
 					"test": storage.NewMetricCounter(int64(2)),
 				},
@@ -90,7 +90,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 		},
 		{
 			name: "positive new gauge",
-			storage: storage.MemStorage{
+			storage: &storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
 			request: &request{
@@ -115,7 +115,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 		},
 		{
 			name: "positive new counter",
-			storage: storage.MemStorage{
+			storage: &storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
 			request: &request{
@@ -140,7 +140,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 		},
 		{
 			name: "wrong gauge value",
-			storage: storage.MemStorage{
+			storage: &storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
 			request: &request{
@@ -157,7 +157,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 		},
 		{
 			name: "wrong counter value",
-			storage: storage.MemStorage{
+			storage: &storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
 			request: &request{
@@ -174,7 +174,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 		},
 		{
 			name: "empty metric name",
-			storage: storage.MemStorage{
+			storage: &storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
 			request: &request{
@@ -191,7 +191,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 		},
 		{
 			name: "wrong metric type",
-			storage: storage.MemStorage{
+			storage: &storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
 			request: &request{
@@ -208,7 +208,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 		},
 		{
 			name: "wrong path #1",
-			storage: storage.MemStorage{
+			storage: &storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
 			request: &request{
@@ -223,7 +223,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewAPIHandler(&tt.storage, "")
+			h := NewAPIHandler(tt.storage, "")
 			ts := httptest.NewServer(h.GetRouter())
 
 			defer ts.Close()
@@ -270,13 +270,13 @@ func TestAPIHandler_Updates(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		storage storage.MemStorage
+		storage *storage.MemStorage
 		request *request
 		want    want
 	}{
 		{
 			name: "batch positive signature",
-			storage: storage.MemStorage{
+			storage: &storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
 			request: &request{
@@ -298,7 +298,7 @@ func TestAPIHandler_Updates(t *testing.T) {
 		},
 		{
 			name: "batch wrong signature",
-			storage: storage.MemStorage{
+			storage: &storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
 			request: &request{
@@ -319,7 +319,7 @@ func TestAPIHandler_Updates(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewAPIHandler(&tt.storage, tt.want.secret)
+			h := NewAPIHandler(tt.storage, tt.want.secret)
 			ts := httptest.NewServer(h.GetRouter())
 
 			defer ts.Close()
