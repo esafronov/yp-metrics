@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func JSONArraysEq(t *testing.T, expectedJson string, actualJson string, msgAndArgs ...interface{}) {
+func JSONArraysEq(t *testing.T, expectedJSON string, actualJSON string, msgAndArgs ...interface{}) {
 	var expected, actual interface{}
-	require.NoError(t, json.Unmarshal([]byte(expectedJson), &expected))
-	require.NoError(t, json.Unmarshal([]byte(actualJson), &actual))
+	require.NoError(t, json.Unmarshal([]byte(expectedJSON), &expected))
+	require.NoError(t, json.Unmarshal([]byte(actualJSON), &actual))
 	require.ElementsMatch(t, expected, actual, msgAndArgs...)
 }
 
