@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,13 @@ import (
 	"github.com/esafronov/yp-metrics/internal/storage"
 	"github.com/stretchr/testify/require"
 )
+
+func JSONArraysEq(t *testing.T, expectedJson string, actualJson string, msgAndArgs ...interface{}) {
+	var expected, actual interface{}
+	require.NoError(t, json.Unmarshal([]byte(expectedJson), &expected))
+	require.NoError(t, json.Unmarshal([]byte(actualJson), &actual))
+	require.ElementsMatch(t, expected, actual, msgAndArgs...)
+}
 
 func TestAgent_SendMetrics(t *testing.T) {
 	type request struct {
@@ -158,7 +166,13 @@ func TestAgent_SendMetrics(t *testing.T) {
 					isValid := signing.IsValid(signature, body, tt.secretKey)
 					require.True(t, isValid, "signature is not valid")
 				}
-				require.JSONEq(t, tt.want.request.body, string(body))
+				if tt.rateLimit > 0 {
+					//single metric
+					require.JSONEq(t, tt.want.request.body, string(body))
+				} else {
+					//batch metrics
+					JSONArraysEq(t, tt.want.request.body, string(body))
+				}
 			})))
 			// Close the server when test finishes
 			defer server.Close()
