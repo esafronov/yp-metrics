@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/esafronov/yp-metrics/internal/signing"
 	"github.com/esafronov/yp-metrics/internal/storage"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,11 +21,13 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 		metric      storage.Metric
 		metricname  storage.MetricName
 		body        string
+		secret      string
 	}
 
 	type request struct {
-		path string
-		body string
+		path   string
+		body   string
+		secret string
 	}
 
 	tests := []struct {
@@ -48,6 +50,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 					"type":"gauge",
 					"value":1.1
 				}`,
+				secret: "123",
 			},
 			want: want{
 				contentType: "application/json",
@@ -59,6 +62,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 					"type":"gauge",
 					"value":1.1
 				}`,
+				secret: "123",
 			},
 		},
 		{
@@ -75,6 +79,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 					"type":"counter",
 					"delta":2
 				}`,
+				secret: "abc",
 			},
 			want: want{
 				contentType: "application/json",
@@ -86,6 +91,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 					"type":"counter",
 					"delta":4
 				}`,
+				secret: "abc",
 			},
 		},
 		{
@@ -173,7 +179,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 			},
 		},
 		{
-			name: "empty name value",
+			name: "empty metric name",
 			storage: storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
@@ -219,29 +225,54 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 				statusCode: http.StatusNotFound,
 			},
 		},
+		{
+			name: "wrong signature",
+			storage: storage.MemStorage{
+				Values: map[storage.MetricName]storage.Metric{},
+			},
+			request: &request{
+				path: "/update/",
+				body: `{
+					"ID":"some",
+					"type":"counter",
+					"delta":1
+				}`,
+				secret: "wrong_secret",
+			},
+			want: want{
+				secret:     "right_server_secret",
+				statusCode: http.StatusBadRequest,
+			},
+		},
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &APIHandler{Storage: &tt.storage}
+			h := NewAPIHandler(&tt.storage, tt.want.secret)
 			ts := httptest.NewServer(h.GetRouter())
 
 			defer ts.Close()
 			reader := strings.NewReader(tt.request.body)
 			req, err := http.NewRequest(http.MethodPost, ts.URL+tt.request.path, reader)
 			require.NoError(t, err)
-			req.Header = map[string][]string{
-				"Content-Type": {"application/json"},
+
+			req.Header.Set("Content-Type", "application/json")
+
+			//emulate agent has key
+			if tt.request.secret != "" {
+				signature, err := signing.Sign([]byte(tt.request.body), tt.request.secret)
+				require.NoError(t, err, "error signing request for agent")
+				req.Header.Set(signing.HeaderSignatureKey, signature)
 			}
 
 			result, err := ts.Client().Do(req)
 			require.NoError(t, err)
 			defer result.Body.Close()
 
-			assert.Equal(t, tt.want.statusCode, result.StatusCode)
+			require.Equal(t, tt.want.statusCode, result.StatusCode)
 
 			if tt.want.statusCode == http.StatusOK {
-				assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
+				require.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
 				body, err := io.ReadAll(result.Body)
 				require.NoError(t, err)
 				require.JSONEq(t, tt.want.body, string(body))

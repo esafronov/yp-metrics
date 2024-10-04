@@ -29,7 +29,7 @@ func Initialize(level string) error {
 	return nil
 }
 
-// RequestLogger — middleware-логер для входящих HTTP-запросов.
+// RequestLogger middleware for logging incomming requests
 func RequestLogger(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		timeStamp := time.Now()

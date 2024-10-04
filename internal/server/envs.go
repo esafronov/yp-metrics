@@ -10,6 +10,7 @@ type envParams struct {
 	FileStoragePath *string `env:"FILE_STORAGE_PATH"`
 	Restore         *bool   `env:"RESTORE"`
 	DatabaseDsn     *string `env:"DATABASE_DSN"`
+	SecretKey       *string `env:"KEY"`
 }
 
 func parseEnv() error {
@@ -22,5 +23,6 @@ func parseEnv() error {
 	fileStoragePath = p.FileStoragePath
 	restoreData = p.Restore
 	databaseDsn = p.DatabaseDsn
+	secretKey = p.SecretKey
 	return nil
 }

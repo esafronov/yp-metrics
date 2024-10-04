@@ -60,13 +60,13 @@ func (s *DBStorage) Insert(ctx context.Context, key MetricName, m Metric) error 
 	switch m.(type) {
 	case *MetricCounter:
 		val := m.GetValue().(int64)
-		_, err := s.db.ExecContext(ctx, "INSERT INTO "+tableName+"(metric_name, metric_type, value_counter) VALUES ($1, $2, $3)", string(key), MetricTypeCounter, val)
+		_, err := s.db.ExecContext(ctx, "INSERT INTO "+tableName+"(metric_name, metric_type, value_counter) VALUES ($1, $2, $3) ON CONFLICT (metric_name) DO UPDATE SET value_counter=EXCLUDED.value_counter+$3", string(key), MetricTypeCounter, val)
 		if err != nil {
 			return err
 		}
 	case *MetricGauge:
 		val := m.GetValue().(float64)
-		_, err := s.db.ExecContext(ctx, "INSERT INTO "+tableName+"(metric_name, metric_type, value_gauge) VALUES ($1,$2,$3)", string(key), MetricTypeGauge, val)
+		_, err := s.db.ExecContext(ctx, "INSERT INTO "+tableName+"(metric_name, metric_type, value_gauge) VALUES ($1,$2,$3) ON CONFLICT (metric_name) DO UPDATE SET value_gauge=$3", string(key), MetricTypeGauge, val)
 		if err != nil {
 			return err
 		}
@@ -109,11 +109,11 @@ func (s *DBStorage) BatchUpdate(ctx context.Context, metrics []Metrics) error {
 	if err != nil {
 		return err
 	}
-	stmInsGauge, err := tx.PrepareContext(ctx, "INSERT INTO "+tableName+"(metric_name, metric_type, value_gauge) VALUES ($1, $2, $3)")
+	stmInsGauge, err := tx.PrepareContext(ctx, "INSERT INTO "+tableName+"(metric_name, metric_type, value_gauge) VALUES ($1, $2, $3) ON CONFLICT (metric_name) DO UPDATE SET value_gauge=$3")
 	if err != nil {
 		return err
 	}
-	stmInsCounter, err := tx.PrepareContext(ctx, "INSERT INTO "+tableName+"(metric_name, metric_type, value_counter) VALUES ($1, $2, $3)")
+	stmInsCounter, err := tx.PrepareContext(ctx, "INSERT INTO "+tableName+"(metric_name, metric_type, value_counter) VALUES ($1, $2, $3) ON CONFLICT (metric_name) DO UPDATE SET value_counter=EXCLUDED.value_counter+$3")
 	if err != nil {
 		return err
 	}

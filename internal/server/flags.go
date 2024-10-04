@@ -30,5 +30,11 @@ func parseFlags() {
 	if databaseDsn == nil {
 		databaseDsn = databaseDsnFlag
 	}
+
+	secretKeyFlag := flag.String("k", "", "secret key for signature check")
+	if secretKey == nil {
+		secretKey = secretKeyFlag
+	}
+
 	flag.Parse()
 }
