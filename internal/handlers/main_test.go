@@ -21,13 +21,11 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 		metric      storage.Metric
 		metricname  storage.MetricName
 		body        string
-		secret      string
 	}
 
 	type request struct {
-		path   string
-		body   string
-		secret string
+		path string
+		body string
 	}
 
 	tests := []struct {
@@ -50,7 +48,6 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 					"type":"gauge",
 					"value":1.1
 				}`,
-				secret: "123",
 			},
 			want: want{
 				contentType: "application/json",
@@ -62,7 +59,6 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 					"type":"gauge",
 					"value":1.1
 				}`,
-				secret: "123",
 			},
 		},
 		{
@@ -79,7 +75,6 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 					"type":"counter",
 					"delta":2
 				}`,
-				secret: "abc",
 			},
 			want: want{
 				contentType: "application/json",
@@ -91,7 +86,6 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 					"type":"counter",
 					"delta":4
 				}`,
-				secret: "abc",
 			},
 		},
 		{
@@ -225,18 +219,95 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 				statusCode: http.StatusNotFound,
 			},
 		},
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := NewAPIHandler(&tt.storage, "")
+			ts := httptest.NewServer(h.GetRouter())
+
+			defer ts.Close()
+			reader := strings.NewReader(tt.request.body)
+			req, err := http.NewRequest(http.MethodPost, ts.URL+tt.request.path, reader)
+			require.NoError(t, err)
+
+			req.Header.Set("Content-Type", "application/json")
+
+			result, err := ts.Client().Do(req)
+			require.NoError(t, err)
+			defer result.Body.Close()
+			require.Equal(t, tt.want.statusCode, result.StatusCode)
+
+			if tt.want.statusCode == http.StatusOK {
+				require.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
+				body, err := io.ReadAll(result.Body)
+				require.NoError(t, err)
+				require.JSONEq(t, tt.want.body, string(body))
+				m, err := h.Storage.Get(context.Background(), tt.want.metricname)
+				require.NoError(t, err, "ошибка получения метрики")
+				require.NotNil(t, m, "отправленная метрика не найдена в хранилище")
+				require.Equal(t, tt.want.metric, m, "метрика в хранилище не соответствует ожидаемой")
+			}
+		})
+	}
+}
+
+func TestAPIHandler_Updates(t *testing.T) {
+
+	type want struct {
+		contentType string
+		statusCode  int
+		metric      storage.Metric
+		metricname  storage.MetricName
+		secret      string
+	}
+
+	type request struct {
+		path   string
+		body   string
+		secret string
+	}
+
+	tests := []struct {
+		name    string
+		storage storage.MemStorage
+		request *request
+		want    want
+	}{
 		{
-			name: "wrong signature",
+			name: "batch positive signature",
 			storage: storage.MemStorage{
 				Values: map[storage.MetricName]storage.Metric{},
 			},
 			request: &request{
-				path: "/update/",
-				body: `{
+				path: "/updates/",
+				body: `[{
 					"ID":"some",
 					"type":"counter",
 					"delta":1
-				}`,
+				}]`,
+				secret: "123",
+			},
+			want: want{
+				secret:      "123",
+				statusCode:  http.StatusOK,
+				contentType: "application/json",
+				metric:      storage.NewMetricCounter(int64(1)),
+				metricname:  storage.MetricName("some"),
+			},
+		},
+		{
+			name: "batch wrong signature",
+			storage: storage.MemStorage{
+				Values: map[storage.MetricName]storage.Metric{},
+			},
+			request: &request{
+				path: "/updates/",
+				body: `[{
+					"ID":"some",
+					"type":"counter",
+					"delta":1
+				}]`,
 				secret: "wrong_secret",
 			},
 			want: want{
@@ -268,14 +339,12 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 			result, err := ts.Client().Do(req)
 			require.NoError(t, err)
 			defer result.Body.Close()
-
 			require.Equal(t, tt.want.statusCode, result.StatusCode)
 
 			if tt.want.statusCode == http.StatusOK {
 				require.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
-				body, err := io.ReadAll(result.Body)
+				_, err := io.ReadAll(result.Body)
 				require.NoError(t, err)
-				require.JSONEq(t, tt.want.body, string(body))
 				m, err := h.Storage.Get(context.Background(), tt.want.metricname)
 				require.NoError(t, err, "ошибка получения метрики")
 				require.NotNil(t, m, "отправленная метрика не найдена в хранилище")
