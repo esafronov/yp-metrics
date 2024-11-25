@@ -33,7 +33,9 @@ func BenchmarkHandler_UpdateJSON(b *testing.B) {
 		w := httptest.NewRecorder()
 		b.StartTimer()
 		h.UpdateJSON(w, req)
-		if response := w.Result(); response.StatusCode != http.StatusOK {
+		response := w.Result()
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
 			b.Error("wrong response status", response.StatusCode)
 		}
 		if testN%10 == 0 {
