@@ -36,5 +36,10 @@ func parseFlags() {
 		secretKey = secretKeyFlag
 	}
 
+	profileServerAddressFlag := flag.String("ad", "", "profile server address to listen")
+	if profileServerAddress == nil {
+		profileServerAddress = profileServerAddressFlag
+	}
+
 	flag.Parse()
 }

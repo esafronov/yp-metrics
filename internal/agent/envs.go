@@ -5,11 +5,12 @@ import (
 )
 
 type envParams struct {
-	Address        *string `env:"ADDRESS"`
-	ReportInterval *int    `env:"REPORT_INTERVAL"`
-	PollInterval   *int    `env:"POLL_INTERVAL"`
-	SecretKey      *string `env:"KEY"`
-	RateLimit      *int    `env:"RATE_LIMIT"`
+	Address              *string `env:"ADDRESS"`
+	ReportInterval       *int    `env:"REPORT_INTERVAL"`
+	PollInterval         *int    `env:"POLL_INTERVAL"`
+	SecretKey            *string `env:"KEY"`
+	RateLimit            *int    `env:"RATE_LIMIT"`
+	ProfileServerAddress *string `env:"PROFILE_SERVER_ADDRESS"`
 }
 
 func parseEnv() error {
@@ -22,5 +23,6 @@ func parseEnv() error {
 	pollInterval = p.PollInterval
 	secretKey = p.SecretKey
 	rateLimit = p.RateLimit
+	profileServerAddress = p.ProfileServerAddress
 	return nil
 }

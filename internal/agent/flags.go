@@ -25,5 +25,9 @@ func parseFlags() {
 	if rateLimit == nil {
 		rateLimit = rateLimitFlag
 	}
+	profileServerAddressFlag := flag.String("ad", "", "profile server address to listen")
+	if profileServerAddress == nil {
+		profileServerAddress = profileServerAddressFlag
+	}
 	flag.Parse()
 }

@@ -9,7 +9,10 @@ import (
 
 	"runtime"
 
+	_ "net/http/pprof" // подключаем пакет pprof
+
 	"github.com/esafronov/yp-metrics/internal/logger"
+	"github.com/esafronov/yp-metrics/internal/pprofserv"
 	"github.com/esafronov/yp-metrics/internal/storage"
 )
 
@@ -30,11 +33,12 @@ func NewAgent(s storage.Repositories, serverAddress string) *Agent {
 	}
 }
 
-var serverAddress *string //server address
-var pollInterval *int     //interval to poll metrics
-var reportInterval *int   //send report interval
-var secretKey *string     //secretKey
-var rateLimit *int        //parallel request limit
+var serverAddress *string        //server address
+var pollInterval *int            //interval to poll metrics
+var reportInterval *int          //send report interval
+var secretKey *string            //secretKey
+var rateLimit *int               //parallel request limit
+var profileServerAddress *string //profile serveraddress to listen
 
 func Run() {
 	if err := parseEnv(); err != nil {
@@ -46,6 +50,12 @@ func Run() {
 	if err != nil {
 		fmt.Println("can't init logger", err)
 		return
+	}
+	//run profile server if env/flag is set
+	if *profileServerAddress != "" {
+		profileServer := pprofserv.NewDebugServer(*profileServerAddress)
+		profileServer.Start()
+		defer profileServer.Close()
 	}
 	a := NewAgent(storage.NewMemStorage(), "http://"+*serverAddress)
 	ctx, cancel := context.WithCancel(context.Background())
