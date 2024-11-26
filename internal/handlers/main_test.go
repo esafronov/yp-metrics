@@ -635,6 +635,7 @@ func ExampleAPIHandler_Index() {
 		fmt.Println("do request error:", err)
 		return
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		fmt.Printf("response status: %d", res.StatusCode)
 	}
@@ -652,6 +653,7 @@ func ExampleAPIHandler_Ping() {
 		fmt.Println("do request error:", err)
 		return
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		fmt.Printf("response status: %d", res.StatusCode)
 	}
@@ -669,6 +671,7 @@ func ExampleAPIHandler_Update() {
 		fmt.Println("do request error:", err)
 		return
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		fmt.Printf("response status: %d", res.StatusCode)
 	}
@@ -692,6 +695,7 @@ func ExampleAPIHandler_UpdateJSON() {
 		fmt.Println("do request error:", err)
 		return
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		fmt.Printf("response status: %d", res.StatusCode)
 	}
@@ -719,6 +723,7 @@ func ExampleAPIHandler_Updates() {
 		fmt.Println("do request error:", err)
 		return
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		fmt.Printf("response status: %d", res.StatusCode)
 	}
@@ -736,6 +741,7 @@ func ExampleAPIHandler_Value() {
 		fmt.Println("do request error:", err)
 		return
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		fmt.Printf("response status: %d", res.StatusCode)
 	}
@@ -758,6 +764,7 @@ func ExampleAPIHandler_ValueJSON() {
 		fmt.Println("do request error:", err)
 		return
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		fmt.Printf("response status: %d", res.StatusCode)
 	}
