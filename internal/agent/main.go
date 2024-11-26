@@ -1,3 +1,6 @@
+// Agent package collects cpu, memory metrics on local machine and send them to Server app by HTTP
+//
+// Main functions are : Run, ReadStat, CollectMetrics, UpdateMetrics, SendMetrics
 package agent
 
 import (
@@ -24,6 +27,7 @@ type Agent struct {
 	chSend        chan storage.Metrics //channel for metrics should be send to server
 }
 
+// Fabric function
 func NewAgent(s storage.Repositories, serverAddress string) *Agent {
 	return &Agent{
 		storage:       s,
@@ -40,6 +44,9 @@ var secretKey *string            //secretKey
 var rateLimit *int               //parallel request limit
 var profileServerAddress *string //profile serveraddress to listen
 
+// Make initialization and run main buisness logic:
+//
+// Get env/flags params, initialize repository, runs routine for collecting and sending metrics
 func Run() {
 	if err := parseEnv(); err != nil {
 		fmt.Printf("env parse err %v\n", err)

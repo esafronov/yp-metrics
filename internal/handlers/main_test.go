@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -619,5 +620,145 @@ func TestAPIHandler_Updates(t *testing.T) {
 				require.Equal(t, tt.want.metric, m, "метрика в хранилище не соответствует ожидаемой")
 			}
 		})
+	}
+}
+
+func ExampleAPIHandler_Index() {
+	req, err := http.NewRequest(http.MethodGet, "http://localhost:8080/", nil)
+	if err != nil {
+		fmt.Println("new request error:", err)
+		return
+	}
+	defer req.Body.Close()
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("do request error:", err)
+		return
+	}
+	if res.StatusCode != http.StatusOK {
+		fmt.Printf("response status: %d", res.StatusCode)
+	}
+}
+
+func ExampleAPIHandler_Ping() {
+	req, err := http.NewRequest(http.MethodGet, "http://localhost:8080/ping/", nil)
+	if err != nil {
+		fmt.Println("new request error:", err)
+		return
+	}
+	defer req.Body.Close()
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("do request error:", err)
+		return
+	}
+	if res.StatusCode != http.StatusOK {
+		fmt.Printf("response status: %d", res.StatusCode)
+	}
+}
+
+func ExampleAPIHandler_Update() {
+	req, err := http.NewRequest(http.MethodPost, "http://localhost:8080/update/counter/test/1", nil)
+	if err != nil {
+		fmt.Println("new request error:", err)
+		return
+	}
+	defer req.Body.Close()
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("do request error:", err)
+		return
+	}
+	if res.StatusCode != http.StatusOK {
+		fmt.Printf("response status: %d", res.StatusCode)
+	}
+}
+
+func ExampleAPIHandler_UpdateJSON() {
+	reader := strings.NewReader(`{
+		"ID":"test",          
+		"MType":"counter",     
+		"Delta":1
+	}`)
+	req, err := http.NewRequest(http.MethodPost, "http://localhost:8080/update/", reader)
+	req.Header.Set("Content-Type", "application/json")
+	if err != nil {
+		fmt.Println("new request error:", err)
+		return
+	}
+	defer req.Body.Close()
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("do request error:", err)
+		return
+	}
+	if res.StatusCode != http.StatusOK {
+		fmt.Printf("response status: %d", res.StatusCode)
+	}
+}
+
+func ExampleAPIHandler_Updates() {
+	reader := strings.NewReader(`[{
+		"ID":"test",          
+		"MType":"counter",     
+		"Delta":1
+	},{
+		"ID":"test2",          
+		"MType":"gauge",     
+		"Value":0.001
+	}]`)
+	req, err := http.NewRequest(http.MethodPost, "http://localhost:8080/updates/", reader)
+	req.Header.Set("Content-Type", "application/json")
+	if err != nil {
+		fmt.Println("new request error:", err)
+		return
+	}
+	defer req.Body.Close()
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("do request error:", err)
+		return
+	}
+	if res.StatusCode != http.StatusOK {
+		fmt.Printf("response status: %d", res.StatusCode)
+	}
+}
+
+func ExampleAPIHandler_Value() {
+	req, err := http.NewRequest(http.MethodGet, "http://localhost:8080/value/counter/test", nil)
+	if err != nil {
+		fmt.Println("new request error:", err)
+		return
+	}
+	defer req.Body.Close()
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("do request error:", err)
+		return
+	}
+	if res.StatusCode != http.StatusOK {
+		fmt.Printf("response status: %d", res.StatusCode)
+	}
+}
+
+func ExampleAPIHandler_ValueJSON() {
+	reader := strings.NewReader(`{
+		"ID":"test",
+		"MType":"counter"
+	}`)
+	req, err := http.NewRequest(http.MethodPost, "http://localhost:8080/value/", reader)
+	req.Header.Set("Content-Type", "application/json")
+	if err != nil {
+		fmt.Println("new request error:", err)
+		return
+	}
+	defer req.Body.Close()
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("do request error:", err)
+		return
+	}
+	if res.StatusCode != http.StatusOK {
+		fmt.Printf("response status: %d", res.StatusCode)
 	}
 }

@@ -1,3 +1,4 @@
+// Package includes server http middleware for request signature validation
 package signing
 
 import (

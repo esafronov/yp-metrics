@@ -1,3 +1,4 @@
+// Package includes pgx connection singleton for connection managing
 package pg
 
 import (
@@ -8,6 +9,7 @@ import (
 
 var DB *sql.DB
 
+// Open connection and sets DB variable
 func Connect(databaseDsn *string) error {
 	db, err := sql.Open("pgx", *databaseDsn)
 	if err != nil {
@@ -17,6 +19,7 @@ func Connect(databaseDsn *string) error {
 	return nil
 }
 
+// Close connection DB
 func Close() {
 	if DB != nil {
 		DB.Close()

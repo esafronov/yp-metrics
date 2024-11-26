@@ -1,3 +1,4 @@
+// Package to run pprof server on independent address
 package pprofserv
 
 import (

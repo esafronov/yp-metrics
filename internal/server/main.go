@@ -1,3 +1,4 @@
+// Server package process incomming requests from Agent
 package server
 
 import (
