@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/esafronov/yp-metrics/internal/storage"
 	"github.com/stretchr/testify/require"
@@ -96,6 +97,7 @@ func TestAgent_UpdateMetrics(t *testing.T) {
 				tt.a.chUpdate <- m
 			}
 			close(tt.a.chUpdate)
+			time.Sleep(time.Duration(1) * time.Second)
 			m, err := tt.a.storage.Get(ctx, tt.want.metricName)
 			require.NoError(t, err, "Получена ошибка")
 			require.NotNil(t, m, "Метрика не найдена в хранилище по ключу %s", tt.want.metricName)
