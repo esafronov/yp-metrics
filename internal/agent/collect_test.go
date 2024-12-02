@@ -24,7 +24,7 @@ func TestAgent_UpdateMetrics(t *testing.T) {
 		metrics []storage.Metrics
 	}{
 		{
-			name: "Save TotalAlloc=123 to storage positive",
+			name: "Save TotalAlloc=0.01 to storage positive",
 			a: &Agent{
 				storage:  storage.NewMemStorage(),
 				chUpdate: make(chan storage.Metrics),
@@ -32,13 +32,13 @@ func TestAgent_UpdateMetrics(t *testing.T) {
 			metrics: []storage.Metrics{
 				{
 					ID:          "TotalAlloc",
-					MType:       "counter",
-					ActualValue: int64(123),
+					MType:       "gauge",
+					ActualValue: float64(0.01),
 				},
 			},
 			want: want{
 				metricName: storage.MeticNameTotalAlloc,
-				cvalue:     int64(123),
+				gvalue:     float64(0.01),
 			},
 		},
 		{
