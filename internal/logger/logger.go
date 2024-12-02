@@ -1,3 +1,4 @@
+// Package includes logger singleton and http middleware for logging requests
 package logger
 
 import (

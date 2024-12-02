@@ -5,12 +5,13 @@ import (
 )
 
 type envParams struct {
-	Address         *string `env:"ADDRESS"`
-	StoreInterval   *int    `env:"STORE_INTERVAL"`
-	FileStoragePath *string `env:"FILE_STORAGE_PATH"`
-	Restore         *bool   `env:"RESTORE"`
-	DatabaseDsn     *string `env:"DATABASE_DSN"`
-	SecretKey       *string `env:"KEY"`
+	Address              *string `env:"ADDRESS"`
+	StoreInterval        *int    `env:"STORE_INTERVAL"`
+	FileStoragePath      *string `env:"FILE_STORAGE_PATH"`
+	Restore              *bool   `env:"RESTORE"`
+	DatabaseDsn          *string `env:"DATABASE_DSN"`
+	SecretKey            *string `env:"KEY"`
+	ProfileServerAddress *string `env:"PROFILE_SERVER_ADDRESS"`
 }
 
 func parseEnv() error {
@@ -24,5 +25,6 @@ func parseEnv() error {
 	restoreData = p.Restore
 	databaseDsn = p.DatabaseDsn
 	secretKey = p.SecretKey
+	profileServerAddress = p.ProfileServerAddress
 	return nil
 }

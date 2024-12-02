@@ -1,3 +1,4 @@
+// Package includes helping functions for retry functionality
 package retry
 
 import "time"

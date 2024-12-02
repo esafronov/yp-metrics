@@ -1,3 +1,6 @@
+// Agent package collects cpu, memory metrics on local machine and send them to Server app by HTTP
+//
+// Main functions are : Run, ReadStat, CollectMetrics, UpdateMetrics, SendMetrics
 package agent
 
 import (
@@ -9,7 +12,10 @@ import (
 
 	"runtime"
 
+	_ "net/http/pprof" // подключаем пакет pprof
+
 	"github.com/esafronov/yp-metrics/internal/logger"
+	"github.com/esafronov/yp-metrics/internal/pprofserv"
 	"github.com/esafronov/yp-metrics/internal/storage"
 )
 
@@ -21,6 +27,7 @@ type Agent struct {
 	chSend        chan storage.Metrics //channel for metrics should be send to server
 }
 
+// Fabric function
 func NewAgent(s storage.Repositories, serverAddress string) *Agent {
 	return &Agent{
 		storage:       s,
@@ -30,12 +37,16 @@ func NewAgent(s storage.Repositories, serverAddress string) *Agent {
 	}
 }
 
-var serverAddress *string //server address
-var pollInterval *int     //interval to poll metrics
-var reportInterval *int   //send report interval
-var secretKey *string     //secretKey
-var rateLimit *int        //parallel request limit
+var serverAddress *string        //server address
+var pollInterval *int            //interval to poll metrics
+var reportInterval *int          //send report interval
+var secretKey *string            //secretKey
+var rateLimit *int               //parallel request limit
+var profileServerAddress *string //profile serveraddress to listen
 
+// Make initialization and run main buisness logic:
+//
+// Get env/flags params, initialize repository, runs routine for collecting and sending metrics
 func Run() {
 	if err := parseEnv(); err != nil {
 		fmt.Printf("env parse err %v\n", err)
@@ -46,6 +57,12 @@ func Run() {
 	if err != nil {
 		fmt.Println("can't init logger", err)
 		return
+	}
+	//run profile server if env/flag is set
+	if *profileServerAddress != "" {
+		profileServer := pprofserv.NewDebugServer(*profileServerAddress)
+		profileServer.Start()
+		defer profileServer.Close()
 	}
 	a := NewAgent(storage.NewMemStorage(), "http://"+*serverAddress)
 	ctx, cancel := context.WithCancel(context.Background())

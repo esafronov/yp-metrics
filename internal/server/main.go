@@ -1,3 +1,4 @@
+// Server package process incomming requests from Agent
 package server
 
 import (
@@ -11,15 +12,17 @@ import (
 	"github.com/esafronov/yp-metrics/internal/handlers"
 	"github.com/esafronov/yp-metrics/internal/logger"
 	"github.com/esafronov/yp-metrics/internal/pg"
+	"github.com/esafronov/yp-metrics/internal/pprofserv"
 	"github.com/esafronov/yp-metrics/internal/storage"
 )
 
-var serverAddress *string   //server address to listen
-var storeInterval *int      //store interval
-var fileStoragePath *string //file storage path
-var restoreData *bool       //restore or not data on start
-var databaseDsn *string     //db connection dsn
-var secretKey *string       //secret key for signature check
+var serverAddress *string        //server address to listen
+var storeInterval *int           //store interval
+var fileStoragePath *string      //file storage path
+var restoreData *bool            //restore or not data on start
+var databaseDsn *string          //db connection dsn
+var secretKey *string            //secret key for signature check
+var profileServerAddress *string //profile serveraddress to listen
 
 func Run() error {
 	if err := parseEnv(); err != nil {
@@ -53,6 +56,14 @@ func Run() error {
 			fmt.Printf("storage can't be closed %s", err)
 		}
 	}()
+
+	//run profile server if env/flag is set
+	if *profileServerAddress != "" {
+		profileServer := pprofserv.NewDebugServer(*profileServerAddress)
+		profileServer.Start()
+		defer profileServer.Close()
+	}
+
 	h := handlers.NewAPIHandler(storageInst, *secretKey)
 	srv := http.Server{
 		Addr:    *serverAddress,

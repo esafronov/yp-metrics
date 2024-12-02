@@ -1,3 +1,4 @@
+// Package includes http server middleware for compressing data
 package compress
 
 import (
@@ -8,8 +9,8 @@ import (
 	"strings"
 )
 
-// gzipWriter реализует интерфейс http.ResponseWriter и позволяет прозрачно для сервера
-// сжимать передаваемые данные и выставлять правильные HTTP-заголовки
+// gzipWriter implements http.ResponseWriter and allow
+// compress data as well as setting up correct http headers
 type gzipWriter struct {
 	w        http.ResponseWriter
 	zw       *gzip.Writer

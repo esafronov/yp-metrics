@@ -1,3 +1,4 @@
+// Packages includes repository implementations: MemStorage, HybridStorage, DbStorage, DTO objects and entities
 package storage
 
 import (

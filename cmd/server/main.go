@@ -1,3 +1,4 @@
+// Server app executable
 package main
 
 import (
