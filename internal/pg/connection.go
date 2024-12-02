@@ -1,4 +1,4 @@
-// Package includes pgx connection singleton for connection managing
+// Package pg singleton includes Connect and Close functions for pgx driver of postgress
 package pg
 
 import (
@@ -9,7 +9,7 @@ import (
 
 var DB *sql.DB
 
-// Open connection and sets DB variable
+// Connect open connection and sets DB variable for singleton
 func Connect(databaseDsn *string) error {
 	db, err := sql.Open("pgx", *databaseDsn)
 	if err != nil {

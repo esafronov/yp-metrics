@@ -1,4 +1,4 @@
-// Package includes logger singleton and http middleware for logging requests
+// Package logger includes singleton and http middleware for logging requests
 package logger
 
 import (

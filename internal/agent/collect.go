@@ -92,7 +92,7 @@ func (a *Agent) collectExtraStat(ctx context.Context, pollInterval *int) chan st
 	return ch
 }
 
-// Routine - receives metrics from two channels and send them to chUpdate
+// CollectMetrics run 2 routines for unit collected metrics from two channels into one
 func (a *Agent) CollectMetrics(ctx context.Context, pollInterval *int) {
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -110,7 +110,7 @@ func (a *Agent) CollectMetrics(ctx context.Context, pollInterval *int) {
 	}()
 }
 
-// Routine - receives metrics from chUpdate for updating in repository
+// UpdateMetrics run routine for reading metrics from channel for updating in repository
 func (a *Agent) UpdateMetrics(ctx context.Context) {
 	go func() {
 		for m := range a.chUpdate {
@@ -129,7 +129,7 @@ func (a *Agent) UpdateMetrics(ctx context.Context) {
 	}()
 }
 
-// Read mem stat info
+// ReadStat read system metrics into structure
 func (a *Agent) ReadStat() {
 	runtime.ReadMemStats(&a.memStats)
 }

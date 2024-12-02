@@ -1,4 +1,4 @@
-// Package includes http server middleware for compressing data
+// Package compress includes http server middleware for compressing data
 package compress
 
 import (
@@ -88,7 +88,7 @@ func (c *gzipReader) Close() error {
 	return c.zr.Close()
 }
 
-// server middleware for compressing data
+// GzipCompressing middleware for compressing data
 func GzipCompressing(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// по умолчанию устанавливаем оригинальный http.ResponseWriter как тот,
@@ -128,7 +128,7 @@ func GzipCompressing(h http.Handler) http.Handler {
 	})
 }
 
-// compress bytes to buffer
+// GzipToBuffer helper function for compressing bytes to buffer
 func GzipToBuffer(data []byte, buf *bytes.Buffer) error {
 	wr := gzip.NewWriter(buf)
 	_, err := wr.Write(data)

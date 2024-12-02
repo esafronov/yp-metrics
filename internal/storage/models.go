@@ -1,4 +1,4 @@
-// Packages includes repository implementations: MemStorage, HybridStorage, DbStorage, DTO objects and entities
+// Package storage includes repository implementations: MemStorage, HybridStorage, DbStorage, DTO objects and entities
 package storage
 
 import (
@@ -135,7 +135,7 @@ func (m *MetricCounter) String() string {
 	return strconv.FormatInt(m.val, 10)
 }
 
-// structure for client-server communication
+// Metrics is DTO
 type Metrics struct {
 	ID          string      `json:"id"`              // имя метрики
 	MType       string      `json:"type"`            // параметр, принимающий значение gauge или counter

@@ -16,7 +16,7 @@ import (
 	"github.com/esafronov/yp-metrics/internal/storage"
 )
 
-// Read metrics from repository and send them to send channel
+// SendMetrics read metrics from repository and send them to send channel
 func (a *Agent) SendMetrics(ctx context.Context, reportInterval *int, rateLimit *int) {
 	if *rateLimit > 0 {
 		for i := 1; i <= *rateLimit; i++ {

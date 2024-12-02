@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// http request with retries
+// DoRequest http request with retries
 func DoRequest(req *http.Request) (res *http.Response, err error) {
 	for n, t := range retriesSchedule {
 		res, err = http.DefaultClient.Do(req)
