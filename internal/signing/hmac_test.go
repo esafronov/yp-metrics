@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -81,5 +82,11 @@ func TestValidateSignature(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	handlerToTest.ServeHTTP(w, req)
 	res := w.Result()
+	defer func() {
+		err := res.Body.Close()
+		if err != nil {
+			assert.NoError(t, err)
+		}
+	}()
 	require.Equal(t, http.StatusOK, res.StatusCode)
 }
