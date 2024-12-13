@@ -217,3 +217,21 @@ func TestHybridStorage_BatchUpdate(t *testing.T) {
 		t.Errorf("HybridStorage.BatchUpdate() error = %v", err)
 	}
 }
+
+func TestHybridStorage_Close(t *testing.T) {
+	ctx := context.Background()
+	filename := ""
+	restore := false
+	storeInterval := 0
+	s, err := NewHybridStorage(ctx, &filename, &storeInterval, &restore)
+	if err != nil {
+		t.Errorf("NewHybridStorage error = %v", err)
+	}
+	if s == nil {
+		t.Errorf("NewHybridStorage is nil")
+		return
+	}
+	if err := s.Close(context.Background()); err != nil {
+		t.Errorf("HybridStorage.BatchUpdate() error = %v", err)
+	}
+}

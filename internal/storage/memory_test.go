@@ -194,3 +194,10 @@ func TestMemStorage_BatchUpdate(t *testing.T) {
 	}
 
 }
+
+func TestMemStorage_Close(t *testing.T) {
+	s := NewMemStorage()
+	if err := s.Close(context.Background()); err != nil {
+		t.Errorf("MemStorage.BatchUpdate() error = %v", err)
+	}
+}
