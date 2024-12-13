@@ -3,6 +3,7 @@ package retry
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 )
@@ -22,6 +23,9 @@ func DoRequest(req *http.Request) (res *http.Response, err error) {
 			continue
 		}
 		break
+	}
+	if res == nil {
+		return nil, fmt.Errorf("can't connect after %d tries", len(retriesSchedule))
 	}
 	return
 }

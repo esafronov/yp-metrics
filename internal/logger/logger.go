@@ -25,7 +25,12 @@ func Initialize(level string) error {
 	if err != nil {
 		return err
 	}
-	defer zl.Sync()
+	defer func() {
+		err := zl.Sync()
+		if err != nil {
+			panic(err)
+		}
+	}()
 	Log = zl
 	return nil
 }

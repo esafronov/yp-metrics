@@ -75,7 +75,10 @@ func (h APIHandler) Index(res http.ResponseWriter, req *http.Request) {
 	html += `</table></body></html>`
 	res.Header().Set("Content-Type", "text/html")
 	res.WriteHeader(http.StatusOK)
-	io.WriteString(res, "Storage list:"+html)
+	_, err = io.WriteString(res, html)
+	if err != nil {
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
 }
 
 // ValueJSON handler for getting requested metric in JSON format
@@ -153,6 +156,10 @@ func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 			metric = storage.NewMetricGauge(value)
 		case storage.MetricTypeCounter:
 			metric = storage.NewMetricCounter(value)
+		default:
+			logger.Log.Error("unknown metric type", zap.Error(err))
+			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
 		err = h.Storage.Insert(req.Context(), metricName, metric)
 		if err != nil {
@@ -160,6 +167,10 @@ func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
+	}
+	if metric == nil {
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
 	}
 	reqMetric.ActualValue = metric.GetValue()
 	res.Header().Set("Content-Type", "application/json")
@@ -212,13 +223,25 @@ func (h APIHandler) Update(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if metric != nil {
-		h.Storage.Update(req.Context(), metricName, value, metric)
+		err := h.Storage.Update(req.Context(), metricName, value, metric)
+		if err != nil {
+			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
 	} else {
 		switch metricType {
 		case storage.MetricTypeGauge:
-			h.Storage.Insert(req.Context(), metricName, storage.NewMetricGauge(value))
+			err := h.Storage.Insert(req.Context(), metricName, storage.NewMetricGauge(value))
+			if err != nil {
+				http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
 		case storage.MetricTypeCounter:
-			h.Storage.Insert(req.Context(), metricName, storage.NewMetricCounter(value))
+			err := h.Storage.Insert(req.Context(), metricName, storage.NewMetricCounter(value))
+			if err != nil {
+				http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -242,7 +265,11 @@ func (h APIHandler) Value(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	io.WriteString(res, m.String())
+	_, err = io.WriteString(res, m.String())
+	if err != nil {
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 }
 
 var ErrMetricType = errors.New("metric type is wrong")

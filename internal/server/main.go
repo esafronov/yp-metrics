@@ -3,6 +3,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -39,7 +40,7 @@ func Run() error {
 	}
 	ctx := context.Background()
 	var storageInst storage.Repositories
-	if *databaseDsn == "" {
+	if databaseDsn != nil && *databaseDsn == "" {
 		storageInst, err = storage.NewHybridStorage(ctx, fileStoragePath, storeInterval, restoreData)
 		if err != nil {
 			return err
@@ -58,13 +59,18 @@ func Run() error {
 	}()
 
 	//run profile server if env/flag is set
-	if *profileServerAddress != "" {
+	if profileServerAddress != nil && *profileServerAddress != "" {
 		profileServer := pprofserv.NewDebugServer(*profileServerAddress)
 		profileServer.Start()
 		defer profileServer.Close()
 	}
-
+	if secretKey == nil {
+		panic("secretKey is nil")
+	}
 	h := handlers.NewAPIHandler(storageInst, *secretKey)
+	if serverAddress == nil {
+		return errors.New("serverAddress is nil")
+	}
 	srv := http.Server{
 		Addr:    *serverAddress,
 		Handler: h.GetRouter(),
@@ -74,13 +80,28 @@ func Run() error {
 		signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
 		s := <-sigs
 		fmt.Println("got signal ", s)
-		srv.Close()
+		err := srv.Close()
+		if err != nil {
+			logger.Log.Info(err.Error())
+		}
 	}()
-	fmt.Printf("listen on address: %s\r\n", *serverAddress)
-	fmt.Println("file storage:", *fileStoragePath)
-	fmt.Println("storage interval:", *storeInterval)
-	fmt.Println("restore flag:", *restoreData)
-	fmt.Println("database dsn:", *databaseDsn)
-	fmt.Println("key:", *secretKey)
+	if serverAddress != nil {
+		fmt.Printf("listen on address: %s\r\n", *serverAddress)
+	}
+	if fileStoragePath != nil {
+		fmt.Println("file storage:", *fileStoragePath)
+	}
+	if storeInterval != nil {
+		fmt.Println("storage interval:", *storeInterval)
+	}
+	if restoreData != nil {
+		fmt.Println("restore flag:", *restoreData)
+	}
+	if databaseDsn != nil {
+		fmt.Println("database dsn:", *databaseDsn)
+	}
+	if secretKey != nil {
+		fmt.Println("key:", *secretKey)
+	}
 	return srv.ListenAndServe()
 }

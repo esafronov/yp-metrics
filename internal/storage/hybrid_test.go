@@ -6,11 +6,13 @@ import (
 	"testing"
 )
 
-func TestMemStorage_Get(t *testing.T) {
-	s := MemStorage{
-		Values: map[MetricName]Metric{
-			"test1": NewMetricCounter(int64(1)),
-			"test2": NewMetricGauge(float64(0.01)),
+func TestHybridStorage_Get(t *testing.T) {
+	s := HybridStorage{
+		MemStorage: MemStorage{
+			Values: map[MetricName]Metric{
+				"test1": NewMetricCounter(int64(1)),
+				"test2": NewMetricGauge(float64(0.01)),
+			},
 		},
 	}
 	ctx := context.Background()
@@ -44,19 +46,26 @@ func TestMemStorage_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := s.Get(ctx, tt.args.key)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("MemStorage.Get() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("HybridStorage.Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MemStorage.Get() = %v, want %v", got, tt.want)
+				t.Errorf("HybridStorage.Get() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestMemStorage_Insert(t *testing.T) {
-	s := NewMemStorage()
+func TestHybridStorage_Insert(t *testing.T) {
 	ctx := context.Background()
+	filename := ""
+	restore := false
+	storeInterval := 0
+
+	s, err := NewHybridStorage(ctx, &filename, &storeInterval, &restore)
+	if err != nil {
+		t.Errorf("NewHybridStorage error = %v", err)
+	}
 
 	type args struct {
 		m   Metric
@@ -89,17 +98,19 @@ func TestMemStorage_Insert(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := s.Insert(ctx, tt.args.key, tt.args.m); (err != nil) != tt.wantErr {
-				t.Errorf("MemStorage.Insert() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("HybridStorage.Insert() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestMemStorage_Update(t *testing.T) {
-	s := MemStorage{
-		Values: map[MetricName]Metric{
-			"test1": NewMetricCounter(int64(1)),
-			"test2": NewMetricGauge(float64(0.01)),
+func TestHybridStorage_Update(t *testing.T) {
+	s := HybridStorage{
+		MemStorage: MemStorage{
+			Values: map[MetricName]Metric{
+				"test1": NewMetricCounter(int64(1)),
+				"test2": NewMetricGauge(float64(0.01)),
+			},
 		},
 	}
 	ctx := context.Background()
@@ -138,17 +149,19 @@ func TestMemStorage_Update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := s.Update(ctx, tt.args.key, tt.args.v, tt.args.m); (err != nil) != tt.wantErr {
-				t.Errorf("MemStorage.Update() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("HybridStorage.Update() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestMemStorage_GetAll(t *testing.T) {
-	s := MemStorage{
-		Values: map[MetricName]Metric{
-			"test1": NewMetricCounter(int64(1)),
-			"test2": NewMetricGauge(float64(0.01)),
+func TestHybridStorage_GetAll(t *testing.T) {
+	s := HybridStorage{
+		MemStorage: MemStorage{
+			Values: map[MetricName]Metric{
+				"test1": NewMetricCounter(int64(1)),
+				"test2": NewMetricGauge(float64(0.01)),
+			},
 		},
 	}
 	want := map[MetricName]Metric{
@@ -158,16 +171,16 @@ func TestMemStorage_GetAll(t *testing.T) {
 	ctx := context.Background()
 	got, err := s.GetAll(ctx)
 	if err != nil {
-		t.Errorf("MemStorage.GetAll() error = %v", err)
+		t.Errorf("HybridStorage.GetAll() error = %v", err)
 		return
 	}
 	if !reflect.DeepEqual(got, want) {
-		t.Errorf("MemStorage.GetAll() = %v, want %v", got, want)
+		t.Errorf("HybridStorage.GetAll() = %v, want %v", got, want)
 	}
 
 }
 
-func TestMemStorage_BatchUpdate(t *testing.T) {
+func TestHybridStorage_BatchUpdate(t *testing.T) {
 
 	metrics := []Metrics{{
 		ID:          "test",
@@ -187,10 +200,20 @@ func TestMemStorage_BatchUpdate(t *testing.T) {
 		ActualValue: float64(0.2),
 	}}
 
-	s := NewMemStorage()
+	ctx := context.Background()
+	filename := ""
+	restore := false
+	storeInterval := 0
 
-	if err := s.BatchUpdate(context.Background(), metrics); err != nil {
-		t.Errorf("MemStorage.BatchUpdate() error = %v", err)
+	s, err := NewHybridStorage(ctx, &filename, &storeInterval, &restore)
+	if err != nil {
+		t.Errorf("NewHybridStorage error = %v", err)
 	}
-
+	if s == nil {
+		t.Errorf("NewHybridStorage is nil")
+		return
+	}
+	if err := s.BatchUpdate(context.Background(), metrics); err != nil {
+		t.Errorf("HybridStorage.BatchUpdate() error = %v", err)
+	}
 }

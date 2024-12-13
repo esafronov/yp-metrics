@@ -11,22 +11,25 @@ import (
 )
 
 type HybridStorage struct {
+	lastStored time.Time
+	file       *os.File
+	encoder    *json.Encoder
+	decoder    *json.Decoder
 	MemStorage
-	file          *os.File      //backup file descriptor
-	encoder       *json.Encoder //encoding data->json
-	decoder       *json.Decoder //decoding json->data
-	storeInterval int           //storeInterval is interval in seconds to make backup
-	lastStored    time.Time     //time when backup has been created last time
-	backupActive  bool          //is backuping active or not, for internal usage
+	storeInterval int
+	backupActive  bool
 }
 
 func NewHybridStorage(ctx context.Context, filename *string, storeInterval *int, restore *bool) (storage *HybridStorage, err error) {
+	if storeInterval == nil {
+		return nil, fmt.Errorf("storeInterval is nil")
+	}
 	var file *os.File
 	backupActive := true
-	if *filename != "" {
+	if filename != nil && *filename != "" {
 		file, err = retry.OpenFile(*filename)
 		if err != nil {
-			return
+			return nil, fmt.Errorf("error open file %w", err)
 		}
 	} else {
 		backupActive = false
@@ -44,7 +47,8 @@ func NewHybridStorage(ctx context.Context, filename *string, storeInterval *int,
 		decoder:       decoder,
 		backupActive:  backupActive,
 	}
-	if *restore {
+
+	if restore != nil && *restore {
 		err = storage.Restore(ctx)
 	}
 	return

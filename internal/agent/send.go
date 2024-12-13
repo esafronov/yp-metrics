@@ -18,10 +18,16 @@ import (
 
 // SendMetrics read metrics from repository and send them to send channel
 func (a *Agent) SendMetrics(ctx context.Context, reportInterval *int, rateLimit *int) {
+	if rateLimit == nil {
+		panic("rateLimit is nil")
+	}
 	if *rateLimit > 0 {
 		for i := 1; i <= *rateLimit; i++ {
 			go a.sendWorker(ctx, i)
 		}
+	}
+	if reportInterval == nil {
+		panic("reportInterval nil")
 	}
 	ticker := time.NewTicker(time.Duration(*reportInterval) * time.Second)
 	defer close(a.chSend)
@@ -85,8 +91,12 @@ func (a *Agent) sendReportInBatch(ctx context.Context) error {
 		return fmt.Errorf("new request: %w", err)
 	}
 	//if secretKey is not empty we calc hash from request body and send it with header
+	if secretKey == nil {
+		panic("secretKey is nil")
+	}
 	if *secretKey != "" {
-		signature, err := signing.Sign(encodedData, *secretKey)
+		var signature string
+		signature, err = signing.Sign(encodedData, *secretKey)
 		if err != nil {
 			return fmt.Errorf("signing request : %w", err)
 		}
@@ -99,7 +109,12 @@ func (a *Agent) sendReportInBatch(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("do request: %w", err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		err := res.Body.Close()
+		if err != nil {
+			logger.Log.Info(err.Error())
+		}
+	}()
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("response status: %d", res.StatusCode)
 	}
@@ -143,7 +158,12 @@ func (a *Agent) sendMetric(ctx context.Context, m *storage.Metrics) error {
 	if err != nil {
 		return fmt.Errorf("do request: %w", err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		err := res.Body.Close()
+		if err != nil {
+			logger.Log.Info(err.Error())
+		}
+	}()
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("response status: %d", res.StatusCode)
 	}

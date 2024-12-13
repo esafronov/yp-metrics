@@ -9,9 +9,15 @@ func parseFlags() {
 	if serverAddress == nil {
 		serverAddress = serverAddressFlag
 	}
+	if serverAddress == nil {
+		panic("server address is not set")
+	}
 	pollIntervalFlag := flag.Int("p", 2, "poll interval in seconds")
 	if pollInterval == nil {
 		pollInterval = pollIntervalFlag
+	}
+	if pollInterval == nil {
+		panic("poll interval is not set")
 	}
 	reportIntervalFlag := flag.Int("r", 10, "report interval in seconds")
 	if reportInterval == nil {

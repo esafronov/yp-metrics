@@ -137,11 +137,11 @@ func (m *MetricCounter) String() string {
 
 // Metrics is DTO
 type Metrics struct {
-	ID          string      `json:"id"`              // имя метрики
-	MType       string      `json:"type"`            // параметр, принимающий значение gauge или counter
-	Delta       *int64      `json:"delta,omitempty"` // значение метрики в случае передачи counter
-	Value       *float64    `json:"value,omitempty"` // значение метрики в случае передачи gauge
 	ActualValue interface{} `json:"-"`
+	Value       *float64    `json:"value,omitempty"`
+	Delta       *int64      `json:"delta,omitempty"`
+	ID          string      `json:"id"`
+	MType       string      `json:"type"`
 }
 
 func (m *Metrics) UnmarshalJSON(data []byte) (err error) {
@@ -172,32 +172,43 @@ func (m *Metrics) UnmarshalJSON(data []byte) (err error) {
 
 func (m Metrics) MarshalJSON() ([]byte, error) {
 	// чтобы избежать рекурсии при json.Marshal, объявляем новый тип
-	type MetricsAlias Metrics
-	var delta int64
-	var value float64
-	aliasValue := struct {
-		MetricsAlias
+	/*type MetricsAlias struct {
 		Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
 		Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
-	}{
-		// встраиваем значение всех полей изначального объекта (embedding)
-		MetricsAlias: MetricsAlias(m),
-		Delta:        &delta,
-		Value:        &value,
+		Metrics
+	}*/
+	type MetricsAlias Metrics
+	//	var aliasValue Metrics
+	if m.ActualValue == nil {
+		return nil, fmt.Errorf("ActualValue is nil")
 	}
-
 	switch m.ActualValue.(type) {
 	case float64:
-		aliasValue.MType = string(MetricTypeGauge)
-		*aliasValue.Value = m.ActualValue.(float64)
-		aliasValue.Delta = nil
+		value := m.ActualValue.(float64)
+		m.MType = string(MetricTypeGauge)
+		aliasValue := struct {
+			Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
+			Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+			MetricsAlias
+		}{
+			MetricsAlias: MetricsAlias(m),
+			Value:        &value,
+		}
+		return json.Marshal(aliasValue)
 	case int64:
-		aliasValue.MType = string(MetricTypeCounter)
-		*aliasValue.Delta = m.ActualValue.(int64)
-		aliasValue.Value = nil
+		delta := m.ActualValue.(int64)
+		m.MType = string(MetricTypeCounter)
+		aliasValue := struct {
+			Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
+			Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+			MetricsAlias
+		}{
+			MetricsAlias: MetricsAlias(m),
+			Delta:        &delta,
+		}
+		return json.Marshal(aliasValue)
 	default:
-		panic("wrong metric struct type")
+		return nil, fmt.Errorf("wrong metric type")
 	}
 
-	return json.Marshal(aliasValue) // вызываем стандартный Marshal
 }

@@ -29,17 +29,17 @@ func TestAgent_SendMetrics(t *testing.T) {
 	}
 
 	type want struct {
-		contentType string
 		request     *request
+		contentType string
 	}
 
 	tests := []struct {
-		name           string
-		a              *Agent
 		want           want
+		a              *Agent
+		name           string
+		secretKey      string
 		reportInterval int
 		rateLimit      int
-		secretKey      string
 	}{
 		{
 			name: "send gauge Lookups 1.200000",
