@@ -34,7 +34,15 @@ func (s *MemStorage) Insert(ctx context.Context, key MetricName, m Metric) error
 
 func (s *MemStorage) Update(ctx context.Context, key MetricName, v interface{}, metric Metric) error {
 	s.mu.Lock()
-	s.Values[key].UpdateValue(v)
+	m, ok := s.Values[key]
+	if !ok {
+		s.mu.Unlock()
+		return fmt.Errorf("key is not found in storage")
+	}
+	if v == nil {
+		return fmt.Errorf("value is nil")
+	}
+	m.UpdateValue(v)
 	s.mu.Unlock()
 	return nil
 }

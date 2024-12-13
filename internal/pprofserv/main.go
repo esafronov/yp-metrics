@@ -1,9 +1,11 @@
-// Package to run pprof server on independent address
+// Package pprofserv run pprof server on independent address
 package pprofserv
 
 import (
 	"net/http"
 	"net/http/pprof"
+
+	"github.com/esafronov/yp-metrics/internal/logger"
 )
 
 type DebugServer struct {
@@ -29,10 +31,16 @@ func (s *DebugServer) Start() {
 		debugMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		debugMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 		s.Handler = debugMux
-		s.ListenAndServe()
+		err := s.ListenAndServe()
+		if err != nil {
+			logger.Log.Info(err.Error())
+		}
 	}()
 }
 
 func (s *DebugServer) Close() {
-	s.Server.Close()
+	err := s.Server.Close()
+	if err != nil {
+		logger.Log.Info(err.Error())
+	}
 }

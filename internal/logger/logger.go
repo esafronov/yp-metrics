@@ -1,4 +1,4 @@
-// Package includes logger singleton and http middleware for logging requests
+// Package logger includes singleton and http middleware for logging requests
 package logger
 
 import (
@@ -25,7 +25,12 @@ func Initialize(level string) error {
 	if err != nil {
 		return err
 	}
-	defer zl.Sync()
+	defer func() {
+		err := zl.Sync()
+		if err != nil {
+			panic(err)
+		}
+	}()
 	Log = zl
 	return nil
 }

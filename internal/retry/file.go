@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// open file with retries
+// OpenFile open file with retries
 func OpenFile(filename string) (file *os.File, err error) {
 	for n, t := range retriesSchedule {
 		file, err = os.OpenFile(filename, os.O_CREATE|os.O_RDWR, 0666)

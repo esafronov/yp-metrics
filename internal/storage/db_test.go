@@ -13,16 +13,15 @@ func TestDBStorage_Get(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 	s := &DBStorage{
 		db: db,
 	}
 	require.NoError(t, err)
 
 	type arg struct {
+		v   interface{}
 		key MetricName
 		t   MetricType
-		v   interface{}
 	}
 
 	type want struct {
@@ -30,9 +29,9 @@ func TestDBStorage_Get(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
 		arg     arg
 		want    want
+		name    string
 		wantErr bool
 	}{
 		{
@@ -94,7 +93,6 @@ func TestDBStorage_Insert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 	ctx := context.Background()
 	s := &DBStorage{
 		db: db,
@@ -182,7 +180,6 @@ func TestDBStorage_Update(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 	ctx := context.Background()
 	s := &DBStorage{
 		db: db,
@@ -190,8 +187,8 @@ func TestDBStorage_Update(t *testing.T) {
 	require.NoError(t, err)
 
 	type arg struct {
-		key MetricName
 		v   Metric
+		key MetricName
 	}
 
 	type want struct {
@@ -200,8 +197,8 @@ func TestDBStorage_Update(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
 		arg     arg
+		name    string
 		want    want
 		wantErr bool
 	}{
@@ -250,7 +247,6 @@ func TestDBStorage_BatchUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 	ctx := context.Background()
 	require.NoError(t, err)
 	s := &DBStorage{
@@ -329,7 +325,6 @@ func TestDBStorage_GetAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 	s := &DBStorage{
 		db: db,
 	}
@@ -361,4 +356,38 @@ func TestDBStorage_GetAll(t *testing.T) {
 		t.Errorf("metric test2 is not returned")
 	}
 
+}
+
+func TestDBStorage_createTable(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	mock.ExpectBegin()
+	mock.ExpectExec("^CREATE TABLE IF NOT EXISTS").WithoutArgs().WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("^CREATE UNIQUE INDEX IF NOT EXISTS").WithoutArgs().WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+	s := &DBStorage{
+		db: db,
+	}
+	require.NoError(t, err)
+	if err := s.createTable(context.Background()); err != nil {
+		t.Fatalf("an error '%s' was not expected when creating table", err)
+	}
+
+}
+
+func TestDBStorage_Close(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	s := &DBStorage{
+		db: db,
+	}
+	require.NoError(t, err)
+	mock.ExpectClose()
+	if err := s.Close(context.Background()); err != nil {
+		t.Fatalf("an error '%s' was not expected when closing db", err)
+	}
 }

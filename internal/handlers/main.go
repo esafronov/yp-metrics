@@ -1,4 +1,4 @@
-// Package includes http router configuration and http handlers for Server app
+// Package handlers includes http router configuration and http handlers for Server app
 package handlers
 
 import (
@@ -23,12 +23,12 @@ type APIHandler struct {
 	secretKey string               //secret key for request signature validation
 }
 
-// Factory function
+// NewAPIHandler is factory method
 func NewAPIHandler(s storage.Repositories, secretKey string) *APIHandler {
 	return &APIHandler{Storage: s, secretKey: secretKey}
 }
 
-// Get new Mux object that implements the Router interface
+// GetRouter return Mux object that implements the Router interface
 func (h APIHandler) GetRouter() chi.Router {
 	r := chi.NewRouter()
 	r.Use(logger.RequestLogger)
@@ -50,7 +50,7 @@ func (h APIHandler) GetRouter() chi.Router {
 	return r
 }
 
-// Http handler for testing service
+// Ping handler for testing service
 func (h APIHandler) Ping(res http.ResponseWriter, req *http.Request) {
 	if err := pg.DB.PingContext(req.Context()); err != nil {
 		logger.Log.Info("ping error", zap.Error(err))
@@ -61,7 +61,7 @@ func (h APIHandler) Ping(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 }
 
-// Http handler for listing all stored metrics in html table
+// Index handler for listing all stored metrics in html table
 func (h APIHandler) Index(res http.ResponseWriter, req *http.Request) {
 	html := `<html><body><table border="1">`
 	items, err := h.Storage.GetAll(req.Context())
@@ -75,10 +75,13 @@ func (h APIHandler) Index(res http.ResponseWriter, req *http.Request) {
 	html += `</table></body></html>`
 	res.Header().Set("Content-Type", "text/html")
 	res.WriteHeader(http.StatusOK)
-	io.WriteString(res, "Storage list:"+html)
+	_, err = io.WriteString(res, html)
+	if err != nil {
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
 }
 
-// Http handler for getting requested metric in JSON format
+// ValueJSON handler for getting requested metric in JSON format
 func (h APIHandler) ValueJSON(res http.ResponseWriter, req *http.Request) {
 	if req.Header.Get("Content-Type") != "application/json" {
 		http.Error(res, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
@@ -112,7 +115,7 @@ func (h APIHandler) ValueJSON(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// Http handler for updating metric with JSON request
+// UpdateJSON handler for updating metric with JSON request
 func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 	var reqMetric storage.Metrics
 	if req.Header.Get("Content-Type") != "application/json" {
@@ -153,6 +156,10 @@ func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 			metric = storage.NewMetricGauge(value)
 		case storage.MetricTypeCounter:
 			metric = storage.NewMetricCounter(value)
+		default:
+			logger.Log.Error("unknown metric type", zap.Error(err))
+			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
 		err = h.Storage.Insert(req.Context(), metricName, metric)
 		if err != nil {
@@ -160,6 +167,10 @@ func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
+	}
+	if metric == nil {
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
 	}
 	reqMetric.ActualValue = metric.GetValue()
 	res.Header().Set("Content-Type", "application/json")
@@ -170,7 +181,7 @@ func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// Http handler for updating metric with url paramitrezed request
+// Update handler for updates metric with url paramitrezed request
 func (h APIHandler) Update(res http.ResponseWriter, req *http.Request) {
 	mt := chi.URLParam(req, "type")
 	if mt != string(storage.MetricTypeGauge) && mt != string(storage.MetricTypeCounter) {
@@ -212,20 +223,32 @@ func (h APIHandler) Update(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if metric != nil {
-		h.Storage.Update(req.Context(), metricName, value, metric)
+		err := h.Storage.Update(req.Context(), metricName, value, metric)
+		if err != nil {
+			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
 	} else {
 		switch metricType {
 		case storage.MetricTypeGauge:
-			h.Storage.Insert(req.Context(), metricName, storage.NewMetricGauge(value))
+			err := h.Storage.Insert(req.Context(), metricName, storage.NewMetricGauge(value))
+			if err != nil {
+				http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
 		case storage.MetricTypeCounter:
-			h.Storage.Insert(req.Context(), metricName, storage.NewMetricCounter(value))
+			err := h.Storage.Insert(req.Context(), metricName, storage.NewMetricCounter(value))
+			if err != nil {
+				http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	res.WriteHeader(http.StatusOK)
 }
 
-// Http handler for getting value of requested metric in text format
+// Value handler respond with value of requested metric in text format
 func (h APIHandler) Value(res http.ResponseWriter, req *http.Request) {
 	mn := chi.URLParam(req, "name")
 	if mn == "" {
@@ -242,7 +265,11 @@ func (h APIHandler) Value(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	io.WriteString(res, m.String())
+	_, err = io.WriteString(res, m.String())
+	if err != nil {
+		http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 }
 
 var ErrMetricType = errors.New("metric type is wrong")
@@ -274,7 +301,7 @@ func decodeMetrics(body io.ReadCloser) (metrics []storage.Metrics, err error) {
 	return
 }
 
-// Http handler for proceccing batch metric updating request with JSON
+// Updates handler processes batch metric update request with JSON
 func (h APIHandler) Updates(res http.ResponseWriter, req *http.Request) {
 	if req.Header.Get("Content-Type") != "application/json" {
 		http.Error(res, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
