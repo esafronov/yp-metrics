@@ -2,7 +2,9 @@
 package logger
 
 import (
+	"errors"
 	"net/http"
+	"syscall"
 	"time"
 
 	"go.uber.org/zap"
@@ -25,7 +27,15 @@ func Initialize(level string) error {
 	if err != nil {
 		return err
 	}
-	defer Log.Sync()
+	defer func(l *zap.Logger) {
+		err := l.Sync()
+		if err != nil {
+			if errors.Is(err, syscall.EINVAL) {
+				return
+			}
+			panic(err)
+		}
+	}(Log)
 	return nil
 }
 
