@@ -21,17 +21,16 @@ func Initialize(level string) error {
 	// устанавливаем уровень
 	cfg.Level = lvl
 	// создаём логер на основе конфигурации
-	zl, err := cfg.Build()
+	Log, err := cfg.Build()
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err := zl.Sync()
+		err := Log.Sync()
 		if err != nil {
 			panic(err)
 		}
 	}()
-	Log = zl
 	return nil
 }
 
