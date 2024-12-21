@@ -1,4 +1,4 @@
-// Package includes server http middleware for request signature validation
+// Package signing includes http server middleware for request signature validation
 package signing
 
 import (
@@ -12,7 +12,7 @@ import (
 
 const HeaderSignatureKey = "HashSHA256"
 
-// get hmac signature in hexadecimal format for body
+// Sign get hmac signature in hexadecimal format for body
 func Sign(body []byte, key string) (signature string, err error) {
 	h := hmac.New(sha256.New, []byte(key))
 	if _, err = h.Write(body); err != nil {
@@ -22,7 +22,7 @@ func Sign(body []byte, key string) (signature string, err error) {
 	return
 }
 
-// check hmac signature for body using key
+// IsValid check hmac signature for body using key
 func IsValid(signature string, body []byte, key string) bool {
 	h := hmac.New(sha256.New, []byte(key))
 	if _, err := h.Write(body); err != nil {
@@ -37,7 +37,7 @@ func IsValid(signature string, body []byte, key string) bool {
 	return hmac.Equal(checkSignature, trueSignature)
 }
 
-// server middleware for checking signature in request with using secretKey
+// ValidateSignature server middleware for checking signature in request using secretKey
 func ValidateSignature(secretKey string) func(h http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

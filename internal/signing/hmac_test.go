@@ -1,14 +1,21 @@
 package signing
 
 import (
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsValid(t *testing.T) {
 	type args struct {
-		body      []byte
 		key       string
 		signature string
+		body      []byte
 	}
 
 	body := []byte(`{"id":"ggg","type":"gauge","value":1.00001}`)
@@ -46,4 +53,40 @@ func TestIsValid(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateSignature(t *testing.T) {
+	reqbody := `
+		{
+			"id":"someparam",
+			"type":"counter",
+			"delta":1
+		}
+	`
+	secretKey := "123"
+	ValidateSignatureHandler := ValidateSignature(secretKey)
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		require.Equal(t, reqbody, string(body))
+	})
+	handlerToTest := ValidateSignatureHandler(nextHandler)
+	w := httptest.NewRecorder()
+	signature, err := Sign([]byte(reqbody), "123")
+	if err != nil {
+		require.NoError(t, err)
+	}
+	reader := strings.NewReader(reqbody)
+	req := httptest.NewRequest("POST", "/", reader)
+	req.Header.Set(HeaderSignatureKey, signature)
+	req.Header.Set("Content-Type", "application/json")
+	handlerToTest.ServeHTTP(w, req)
+	res := w.Result()
+	defer func() {
+		err := res.Body.Close()
+		if err != nil {
+			assert.NoError(t, err)
+		}
+	}()
+	require.Equal(t, http.StatusOK, res.StatusCode)
 }

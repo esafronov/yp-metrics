@@ -7,11 +7,8 @@ import (
 	"time"
 
 	"reflect"
-	"runtime"
 
 	"github.com/esafronov/yp-metrics/internal/storage"
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/v4/mem"
 )
 
 // Routine for collecting general metrics, returns channel for reading
@@ -28,7 +25,10 @@ func (a *Agent) collectMemStat(ctx context.Context, pollInterval *int) chan stor
 				a.ReadStat()
 				r := reflect.ValueOf(a.memStats)
 				for _, metricName := range storage.GetGaugeMetrics() {
-					rv := reflect.Indirect(r).FieldByName(string(metricName))
+					rv := r.FieldByName(string(metricName))
+					if !rv.IsValid() {
+						continue
+					}
 					var v interface{}
 					if rv.CanUint() {
 						v = float64(rv.Uint())
@@ -69,7 +69,10 @@ func (a *Agent) collectExtraStat(ctx context.Context, pollInterval *int) chan st
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				vmem, _ := mem.VirtualMemory()
+				vmem, err := a.vmemReadFunc()
+				if err != nil {
+					panic("Error when reading mem")
+				}
 				ch <- storage.Metrics{
 					ID:          string(storage.MetricNameTotalMemory),
 					MType:       string(storage.MetricTypeGauge),
@@ -80,7 +83,10 @@ func (a *Agent) collectExtraStat(ctx context.Context, pollInterval *int) chan st
 					MType:       string(storage.MetricTypeGauge),
 					ActualValue: float64(vmem.Free),
 				}
-				vcpu, _ := cpu.Percent(0, false)
+				vcpu, err := a.cpuReadFunc(0, false)
+				if err != nil {
+					panic("Error when reading cpu")
+				}
 				ch <- storage.Metrics{
 					ID:          string(storage.MetricNameCPUutilization1),
 					MType:       string(storage.MetricTypeGauge),
@@ -92,7 +98,7 @@ func (a *Agent) collectExtraStat(ctx context.Context, pollInterval *int) chan st
 	return ch
 }
 
-// Routine - receives metrics from two channels and send them to chUpdate
+// CollectMetrics run 2 routines for unit collected metrics from two channels into one
 func (a *Agent) CollectMetrics(ctx context.Context, pollInterval *int) {
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -110,26 +116,35 @@ func (a *Agent) CollectMetrics(ctx context.Context, pollInterval *int) {
 	}()
 }
 
-// Routine - receives metrics from chUpdate for updating in repository
+// UpdateMetrics run routine for reading metrics from channel for updating in repository
 func (a *Agent) UpdateMetrics(ctx context.Context) {
 	go func() {
 		for m := range a.chUpdate {
 			metric, _ := a.storage.Get(ctx, storage.MetricName(m.ID))
 			if metric != nil {
-				a.storage.Update(ctx, storage.MetricName(m.ID), m.ActualValue, metric)
+				err := a.storage.Update(ctx, storage.MetricName(m.ID), m.ActualValue, metric)
+				if err != nil {
+					panic(err.Error())
+				}
 			} else {
 				switch m.MType {
 				case string(storage.MetricTypeCounter):
-					a.storage.Insert(ctx, storage.MetricName(m.ID), storage.NewMetricCounter(m.ActualValue))
+					err := a.storage.Insert(ctx, storage.MetricName(m.ID), storage.NewMetricCounter(m.ActualValue))
+					if err != nil {
+						panic(err.Error())
+					}
 				case string(storage.MetricTypeGauge):
-					a.storage.Insert(ctx, storage.MetricName(m.ID), storage.NewMetricGauge(m.ActualValue))
+					err := a.storage.Insert(ctx, storage.MetricName(m.ID), storage.NewMetricGauge(m.ActualValue))
+					if err != nil {
+						panic(err.Error())
+					}
 				}
 			}
 		}
 	}()
 }
 
-// Read mem stat info
+// ReadStat read system metrics into structure
 func (a *Agent) ReadStat() {
-	runtime.ReadMemStats(&a.memStats)
+	a.memReadFunc(&a.memStats)
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"github.com/esafronov/yp-metrics/internal/logger"
 )
 
 const tableName string = "metrics"
@@ -28,7 +30,12 @@ func (s *DBStorage) Get(ctx context.Context, key MetricName) (Metric, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		err = rows.Close()
+		if err != nil {
+			logger.Log.Info(err.Error())
+		}
+	}()
 	if !rows.Next() {
 		return nil, nil
 	}
@@ -57,6 +64,9 @@ func (s *DBStorage) Get(ctx context.Context, key MetricName) (Metric, error) {
 }
 
 func (s *DBStorage) Insert(ctx context.Context, key MetricName, m Metric) error {
+	if m == nil {
+		return fmt.Errorf("metric is nil")
+	}
 	switch m.(type) {
 	case *MetricCounter:
 		val := m.GetValue().(int64)
@@ -70,6 +80,8 @@ func (s *DBStorage) Insert(ctx context.Context, key MetricName, m Metric) error 
 		if err != nil {
 			return err
 		}
+	default:
+		return fmt.Errorf("metric type is unknown")
 	}
 	return nil
 }
@@ -96,7 +108,12 @@ func (s *DBStorage) BatchUpdate(ctx context.Context, metrics []Metrics) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		err = tx.Rollback()
+		if err != nil {
+			logger.Log.Info(err.Error())
+		}
+	}()
 	stmCount, err := tx.PrepareContext(ctx, "SELECT COUNT(*) FROM "+tableName+" WHERE metric_name=$1")
 	if err != nil {
 		return err
@@ -121,7 +138,7 @@ func (s *DBStorage) BatchUpdate(ctx context.Context, metrics []Metrics) error {
 	for _, m := range metrics {
 		value := m.ActualValue
 		row := stmCount.QueryRowContext(ctx, m.ID)
-		if err := row.Scan(&count); err != nil {
+		if err = row.Scan(&count); err != nil {
 			return err
 		}
 		switch val := value.(type) {
@@ -156,13 +173,18 @@ func (s *DBStorage) GetAll(ctx context.Context) (map[MetricName]Metric, error) {
 		return nil, err
 	}
 	// обязательно закрываем перед возвратом функции
-	defer rows.Close()
+	defer func() {
+		err = rows.Close()
+		if err != nil {
+			logger.Log.Info(err.Error())
+		}
+	}()
 	var gaugeValue sql.NullFloat64
 	var counterValue sql.NullInt64
 	var metricName string
 	metrics := map[MetricName]Metric{}
 	for rows.Next() {
-		err := rows.Scan(&metricName, &gaugeValue, &counterValue)
+		err = rows.Scan(&metricName, &gaugeValue, &counterValue)
 		if err != nil {
 			return nil, err
 		}
@@ -191,8 +213,13 @@ func (s *DBStorage) createTable(ctx context.Context) error {
 		return err
 	}
 	// roll back if commit will fail
-	defer tx.Rollback()
-	tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS `+
+	defer func() {
+		err = tx.Rollback()
+		if err != nil {
+			logger.Log.Info(err.Error())
+		}
+	}()
+	_, err = tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS `+
 		tableName+
 		`(
 			id SERIAL,
@@ -201,7 +228,13 @@ func (s *DBStorage) createTable(ctx context.Context) error {
 			value_gauge DOUBLE PRECISION DEFAULT NULL,
 			value_counter BIGINT DEFAULT NULL
 		)`)
-	tx.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS metric_name ON `+tableName+` (metric_name)`)
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS metric_name ON `+tableName+` (metric_name)`)
+	if err != nil {
+		return err
+	}
 	if err = tx.Commit(); err != nil {
 		return err
 	}

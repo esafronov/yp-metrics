@@ -1,4 +1,4 @@
-// Package includes helping functions for retry functionality
+// Package retry includes helping functions for retring capabilities
 package retry
 
 import "time"
