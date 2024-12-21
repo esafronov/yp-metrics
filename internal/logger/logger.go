@@ -25,12 +25,7 @@ func Initialize(level string) error {
 	if err != nil {
 		return err
 	}
-	defer func(l *zap.Logger) {
-		err := l.Sync()
-		if err != nil {
-			panic(err)
-		}
-	}(Log)
+	defer Log.Sync()
 	return nil
 }
 
