@@ -25,12 +25,12 @@ func Initialize(level string) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		err := Log.Sync()
+	defer func(l *zap.Logger) {
+		err := l.Sync()
 		if err != nil {
 			panic(err)
 		}
-	}()
+	}(Log)
 	return nil
 }
 
