@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/esafronov/yp-metrics/internal/compress"
+	"github.com/esafronov/yp-metrics/internal/encrypt"
 	"github.com/esafronov/yp-metrics/internal/logger"
 	"github.com/esafronov/yp-metrics/internal/retry"
 	"github.com/esafronov/yp-metrics/internal/signing"
@@ -91,12 +92,9 @@ func (a *Agent) sendReportInBatch(ctx context.Context) error {
 		return fmt.Errorf("new request: %w", err)
 	}
 	//if secretKey is not empty we calc hash from request body and send it with header
-	if secretKey == nil {
-		panic("secretKey is nil")
-	}
-	if *secretKey != "" {
+	if a.secretKey != "" {
 		var signature string
-		signature, err = signing.Sign(encodedData, *secretKey)
+		signature, err = signing.Sign(encodedData, a.secretKey)
 		if err != nil {
 			return fmt.Errorf("signing request : %w", err)
 		}
@@ -142,6 +140,14 @@ func (a *Agent) sendMetric(ctx context.Context, m *storage.Metrics) error {
 	if err != nil {
 		return fmt.Errorf("marshal error %w", err)
 	}
+
+	if a.cryptoKey != "" {
+		marshaled, err = encrypt.EncryptBody(marshaled, a.cryptoKey)
+		if err != nil {
+			return fmt.Errorf("encrypt error %w", err)
+		}
+	}
+
 	var data bytes.Buffer
 	err = compress.GzipToBuffer(marshaled, &data)
 	if err != nil {

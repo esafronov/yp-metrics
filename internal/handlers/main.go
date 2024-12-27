@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/esafronov/yp-metrics/internal/compress"
+	"github.com/esafronov/yp-metrics/internal/encrypt"
 	"github.com/esafronov/yp-metrics/internal/logger"
 	"github.com/esafronov/yp-metrics/internal/pg"
 	"github.com/esafronov/yp-metrics/internal/signing"
@@ -21,11 +22,30 @@ import (
 type APIHandler struct {
 	Storage   storage.Repositories //repository
 	secretKey string               //secret key for request signature validation
+	cryptoKey string               //RSA private key for decrypting request
+}
+
+// OptionWithSecretKey option function to configure APIHandler to use secretKey
+func OptionWithSecretKey(secretKey string) func(h *APIHandler) {
+	return func(h *APIHandler) {
+		h.secretKey = secretKey
+	}
+}
+
+// OptionWithCryptoKey option function to configure APIHandler to use cryptoKey
+func OptionWithCryptoKey(cryptoKey string) func(h *APIHandler) {
+	return func(h *APIHandler) {
+		h.cryptoKey = cryptoKey
+	}
 }
 
 // NewAPIHandler is factory method
-func NewAPIHandler(s storage.Repositories, secretKey string) *APIHandler {
-	return &APIHandler{Storage: s, secretKey: secretKey}
+func NewAPIHandler(s storage.Repositories, opts ...func(h *APIHandler)) *APIHandler {
+	h := &APIHandler{Storage: s}
+	for _, f := range opts {
+		f(h)
+	}
+	return h
 }
 
 // GetRouter return Mux object that implements the Router interface
@@ -36,7 +56,10 @@ func (h APIHandler) GetRouter() chi.Router {
 	r.Get("/", h.Index)    //html table with all stored metrics
 	r.Get("/ping", h.Ping) //test DB connection
 	r.Route("/update", func(r chi.Router) {
-		r.Post("/", h.UpdateJSON)                  //update metric with json request
+		r.Group(func(r chi.Router) {
+			r.Use(encrypt.DecryptingMiddleware(h.cryptoKey)) //decrypt body with RSA algo
+			r.Post("/", h.UpdateJSON)                        //update metric with json request
+		})
 		r.Post("/{type}/{name}/{value}", h.Update) //update metric with url request
 	})
 	r.Route("/value", func(r chi.Router) {
@@ -123,6 +146,7 @@ func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if err := json.NewDecoder(req.Body).Decode(&reqMetric); err != nil {
+		logger.Log.Error("decode metric", zap.Error(err))
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}

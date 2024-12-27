@@ -3,6 +3,7 @@ package logger
 
 import (
 	"errors"
+	"io/fs"
 	"net/http"
 	"syscall"
 	"time"
@@ -23,19 +24,20 @@ func Initialize(level string) error {
 	// устанавливаем уровень
 	cfg.Level = lvl
 	// создаём логер на основе конфигурации
-	Log, err := cfg.Build()
+	lz, err := cfg.Build()
 	if err != nil {
 		return err
 	}
 	defer func(l *zap.Logger) {
 		err := l.Sync()
 		if err != nil {
-			if errors.Is(err, syscall.EINVAL) {
-				return
+			_, isPathErr := err.(*fs.PathError)
+			if !errors.Is(err, syscall.EINVAL) && !errors.Is(err, syscall.ENOTTY) && !isPathErr {
+				panic(err)
 			}
-			panic(err)
 		}
-	}(Log)
+	}(lz)
+	Log = lz
 	return nil
 }
 

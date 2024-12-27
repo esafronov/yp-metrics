@@ -99,7 +99,8 @@ func TestAgent_SendMetrics(t *testing.T) {
 						"Test":    storage.NewMetricGauge(float64(1.0002)),
 					},
 				},
-				chSend: make(chan storage.Metrics),
+				chSend:    make(chan storage.Metrics),
+				secretKey: "mypass",
 			},
 			reportInterval: 1,
 			rateLimit:      0,
@@ -178,7 +179,6 @@ func TestAgent_SendMetrics(t *testing.T) {
 			defer server.Close()
 			tt.a.serverAddress = server.URL
 			ctx, cancel := context.WithCancel(context.Background())
-			secretKey = &tt.secretKey
 			go tt.a.SendMetrics(ctx, &tt.reportInterval, &tt.rateLimit)
 			time.Sleep(time.Duration(1500) * time.Millisecond)
 			cancel()

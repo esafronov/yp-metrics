@@ -14,34 +14,31 @@ import (
 	"github.com/esafronov/yp-metrics/internal/logger"
 	"github.com/esafronov/yp-metrics/internal/pg"
 	"github.com/esafronov/yp-metrics/internal/pprofserv"
+	"github.com/esafronov/yp-metrics/internal/server/config"
 	"github.com/esafronov/yp-metrics/internal/storage"
+	"go.uber.org/zap"
 )
 
-var serverAddress *string        //server address to listen
-var storeInterval *int           //store interval
-var fileStoragePath *string      //file storage path
-var restoreData *bool            //restore or not data on start
-var databaseDsn *string          //db connection dsn
-var secretKey *string            //secret key for signature check
-var profileServerAddress *string //profile serveraddress to listen
-
 func Run() error {
-	if err := parseEnv(); err != nil {
-		return err
-	}
-	parseFlags()
-	err := logger.Initialize("debug")
-	if err != nil {
-		return err
-	}
-	err = pg.Connect(databaseDsn)
+	params := config.Params
+	logger.Log.Info("params",
+		zap.String("Address", *params.Address),
+		zap.String("DatabaseDsn", *params.DatabaseDsn),
+		zap.String("FileStoragePath", *params.FileStoragePath),
+		zap.String("ProfileServerAddress", *params.ProfileServerAddress),
+		zap.Bool("Restore", *params.Restore),
+		zap.Int("StoreInterval", *params.StoreInterval),
+		zap.String("SecretKey", *params.SecretKey),
+		zap.String("CryptoKey", *params.CryptoKey),
+	)
+	err := pg.Connect(params.DatabaseDsn)
 	if err != nil {
 		return err
 	}
 	ctx := context.Background()
 	var storageInst storage.Repositories
-	if databaseDsn != nil && *databaseDsn == "" {
-		storageInst, err = storage.NewHybridStorage(ctx, fileStoragePath, storeInterval, restoreData)
+	if params.DatabaseDsn != nil && *params.DatabaseDsn == "" {
+		storageInst, err = storage.NewHybridStorage(ctx, params.FileStoragePath, params.StoreInterval, params.Restore)
 		if err != nil {
 			return err
 		}
@@ -57,22 +54,22 @@ func Run() error {
 			fmt.Printf("storage can't be closed %s", err)
 		}
 	}()
-
 	//run profile server if env/flag is set
-	if profileServerAddress != nil && *profileServerAddress != "" {
-		profileServer := pprofserv.NewDebugServer(*profileServerAddress)
+	if params.ProfileServerAddress != nil && *params.ProfileServerAddress != "" {
+		profileServer := pprofserv.NewDebugServer(*params.ProfileServerAddress)
 		profileServer.Start()
 		defer profileServer.Close()
 	}
-	if secretKey == nil {
-		panic("secretKey is nil")
-	}
-	h := handlers.NewAPIHandler(storageInst, *secretKey)
-	if serverAddress == nil {
+	h := handlers.NewAPIHandler(
+		storageInst,
+		handlers.OptionWithSecretKey(*params.SecretKey),
+		handlers.OptionWithCryptoKey(*params.CryptoKey),
+	)
+	if params.Address == nil {
 		return errors.New("serverAddress is nil")
 	}
 	srv := http.Server{
-		Addr:    *serverAddress,
+		Addr:    *params.Address,
 		Handler: h.GetRouter(),
 	}
 	go func() {
@@ -85,23 +82,5 @@ func Run() error {
 			logger.Log.Info(err.Error())
 		}
 	}()
-	if serverAddress != nil {
-		fmt.Printf("listen on address: %s\r\n", *serverAddress)
-	}
-	if fileStoragePath != nil {
-		fmt.Println("file storage:", *fileStoragePath)
-	}
-	if storeInterval != nil {
-		fmt.Println("storage interval:", *storeInterval)
-	}
-	if restoreData != nil {
-		fmt.Println("restore flag:", *restoreData)
-	}
-	if databaseDsn != nil {
-		fmt.Println("database dsn:", *databaseDsn)
-	}
-	if secretKey != nil {
-		fmt.Println("key:", *secretKey)
-	}
 	return srv.ListenAndServe()
 }
