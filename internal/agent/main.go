@@ -129,9 +129,9 @@ func Run() {
 		panic("pollInterval is null")
 	}
 	a.CollectMetrics(ctx, params.PollInterval)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT, syscall.SIGQUIT)
 	go func() {
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
 		s := <-sigs
 		fmt.Println("got signal ", s)
 		cancel()

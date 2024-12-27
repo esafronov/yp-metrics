@@ -72,15 +72,19 @@ func Run() error {
 		Addr:    *params.Address,
 		Handler: h.GetRouter(),
 	}
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT, syscall.SIGQUIT)
+	idleConnsClosed := make(chan struct{})
 	go func() {
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
 		s := <-sigs
 		fmt.Println("got signal ", s)
-		err := srv.Close()
+		err := srv.Shutdown(context.Background())
 		if err != nil {
 			logger.Log.Info(err.Error())
 		}
+		close(idleConnsClosed)
 	}()
-	return srv.ListenAndServe()
+	err = srv.ListenAndServe()
+	<-idleConnsClosed
+	return err
 }
