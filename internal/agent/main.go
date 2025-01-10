@@ -95,6 +95,7 @@ func Run() {
 		fmt.Println("can't init logger", err)
 		return
 	}
+	config.Initialize()
 	params := config.Params
 	logger.Log.Info("params",
 		zap.String("Address", *params.Address),

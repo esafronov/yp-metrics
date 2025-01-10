@@ -96,7 +96,7 @@ func SetFlags() {
 	}
 }
 
-func init() {
+func Initialize() {
 	parseFlags()
 	configFileName, existsInEnv := os.LookupEnv("CONFIG")
 	if !existsInEnv {
