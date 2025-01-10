@@ -20,6 +20,7 @@ import (
 )
 
 func Run() error {
+	config.Initialize()
 	params := config.Params
 	logger.Log.Info("params",
 		zap.String("Address", *params.Address),

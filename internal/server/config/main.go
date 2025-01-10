@@ -96,7 +96,7 @@ func parseConfigFile(filename string) error {
 	return nil
 }
 
-func init() {
+func Initialize() {
 	parseFlags()
 	configFileName, existsInEnv := os.LookupEnv("CONFIG")
 	if !existsInEnv {
