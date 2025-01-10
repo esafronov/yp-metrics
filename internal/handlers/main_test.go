@@ -20,7 +20,7 @@ import (
 
 // benchmark for updating metrica with JSON
 func BenchmarkHandler_UpdateJSON(b *testing.B) {
-	h := NewAPIHandler(storage.NewMemStorage(), "")
+	h := NewAPIHandler(storage.NewMemStorage())
 	testN := 1
 	testStr := "test" + strconv.Itoa(testN)
 	for i := 0; i < b.N; i++ {
@@ -200,7 +200,7 @@ func TestAPIHandler_Update(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewAPIHandler(tt.storage, "")
+			h := NewAPIHandler(tt.storage)
 			ts := httptest.NewServer(h.GetRouter())
 
 			defer ts.Close()
@@ -454,7 +454,7 @@ func TestAPIHandler_UpdateJSON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewAPIHandler(tt.storage, "")
+			h := NewAPIHandler(tt.storage)
 			ts := httptest.NewServer(h.GetRouter())
 
 			defer ts.Close()
@@ -620,7 +620,7 @@ func TestAPIHandler_Updates(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewAPIHandler(tt.storage, tt.want.secret)
+			h := NewAPIHandler(tt.storage, OptionWithSecretKey(tt.want.secret))
 			ts := httptest.NewServer(h.GetRouter())
 
 			defer ts.Close()
@@ -935,7 +935,7 @@ func TestAPIHandler_Index(t *testing.T) {
 		},
 	}
 
-	h := NewAPIHandler(s, "")
+	h := NewAPIHandler(s)
 	ts := httptest.NewServer(h.GetRouter())
 
 	defer ts.Close()
@@ -1134,7 +1134,7 @@ func TestAPIHandler_ValueJSON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewAPIHandler(tt.storage, "")
+			h := NewAPIHandler(tt.storage)
 			ts := httptest.NewServer(h.GetRouter())
 
 			defer ts.Close()
@@ -1177,7 +1177,7 @@ func TestAPIHandler_Ping(t *testing.T) {
 	s := &storage.DBStorage{}
 	require.NoError(t, err)
 	pg.DB = db
-	h := NewAPIHandler(s, "")
+	h := NewAPIHandler(s)
 	ts := httptest.NewServer(h.GetRouter())
 	defer ts.Close()
 	req, err := http.NewRequest(http.MethodGet, ts.URL+"/ping", nil)
@@ -1282,7 +1282,7 @@ func TestAPIHandler_Value(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewAPIHandler(tt.storage, "")
+			h := NewAPIHandler(tt.storage)
 			ts := httptest.NewServer(h.GetRouter())
 
 			defer ts.Close()
