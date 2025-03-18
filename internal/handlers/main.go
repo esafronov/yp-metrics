@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/esafronov/yp-metrics/internal/access"
 	"github.com/esafronov/yp-metrics/internal/compress"
 	"github.com/esafronov/yp-metrics/internal/encrypt"
 	"github.com/esafronov/yp-metrics/internal/logger"
@@ -20,9 +21,10 @@ import (
 
 // APIHandler have repository for storing metrics and secretKey for incomming request validation
 type APIHandler struct {
-	Storage   storage.Repositories //repository
-	secretKey string               //secret key for request signature validation
-	cryptoKey string               //RSA private key for decrypting request
+	Storage       storage.Repositories //repository
+	secretKey     string               //secret key for request signature validation
+	cryptoKey     string               //RSA private key for decrypting request
+	trustedSubnet string               //trusted subnet
 }
 
 // OptionWithSecretKey option function to configure APIHandler to use secretKey
@@ -39,6 +41,12 @@ func OptionWithCryptoKey(cryptoKey string) func(h *APIHandler) {
 	}
 }
 
+func OptionWithTrustedSubnet(trustedSubnet string) func(h *APIHandler) {
+	return func(h *APIHandler) {
+		h.trustedSubnet = trustedSubnet
+	}
+}
+
 // NewAPIHandler is factory method
 func NewAPIHandler(s storage.Repositories, opts ...func(h *APIHandler)) *APIHandler {
 	h := &APIHandler{Storage: s}
@@ -52,6 +60,7 @@ func NewAPIHandler(s storage.Repositories, opts ...func(h *APIHandler)) *APIHand
 func (h APIHandler) GetRouter() chi.Router {
 	r := chi.NewRouter()
 	r.Use(logger.RequestLogger)
+	r.Use(access.ValidateIp(h.trustedSubnet))
 	r.Use(compress.GzipCompressing)
 	r.Get("/", h.Index)    //html table with all stored metrics
 	r.Get("/ping", h.Ping) //test DB connection

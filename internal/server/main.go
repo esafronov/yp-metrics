@@ -31,6 +31,7 @@ func Run() error {
 		zap.Int("StoreInterval", *params.StoreInterval),
 		zap.String("SecretKey", *params.SecretKey),
 		zap.String("CryptoKey", *params.CryptoKey),
+		zap.String("TrustedSubnet", *params.TrustedSubnet),
 	)
 	err := pg.Connect(params.DatabaseDsn)
 	if err != nil {
@@ -65,6 +66,7 @@ func Run() error {
 		storageInst,
 		handlers.OptionWithSecretKey(*params.SecretKey),
 		handlers.OptionWithCryptoKey(*params.CryptoKey),
+		handlers.OptionWithTrustedSubnet(*params.TrustedSubnet),
 	)
 	if params.Address == nil {
 		return errors.New("serverAddress is nil")

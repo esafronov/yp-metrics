@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -160,6 +161,10 @@ func (a *Agent) sendMetric(ctx context.Context, m *storage.Metrics) error {
 	//header Accept-Encoding : gzip will be added automatically, so not need to add
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
+	localIp := GetLocalIP()
+	fmt.Println("local IP", localIp)
+	//header X-Real-IP with agent ip address
+	req.Header.Set("X-Real-IP", localIp)
 	res, err := retry.DoRequest(req)
 	if err != nil {
 		return fmt.Errorf("do request: %w", err)
@@ -174,4 +179,21 @@ func (a *Agent) sendMetric(ctx context.Context, m *storage.Metrics) error {
 		return fmt.Errorf("response status: %d", res.StatusCode)
 	}
 	return nil
+}
+
+// GetLocalIP returns the non loopback local IP of the host
+func GetLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	for _, address := range addrs {
+		// check the address type and if it is not a loopback the display it
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
 }
