@@ -3,11 +3,19 @@ package signing
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"net/http"
+
+	pb "github.com/esafronov/yp-metrics/internal/grpc/proto"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 const HeaderSignatureKey = "HashSHA256"
@@ -108,4 +116,38 @@ func (w *SigningResponseWriter) WriteHeader(statusCode int) {
 		w.rw.Header().Set(HeaderSignatureKey, signature)
 	}
 	w.rw.WriteHeader(statusCode)
+}
+
+// UnaryValidateSignatureInterceptor is the interceptor for gRPC server for validating remote calls
+func UnaryValidateSignatureInterceptor(secretKey string) func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		if secretKey != "" {
+			pbRequest, ok := req.(*pb.BatchUpdateRequest)
+			//do validation only for BatchUpdateRequest
+			if !ok {
+				return handler(ctx, req)
+			}
+			var signature string
+			md, ok := metadata.FromIncomingContext(ctx)
+			if !ok {
+				return nil, status.Error(codes.InvalidArgument, "no metadata found")
+			}
+			values := md.Get(HeaderSignatureKey)
+			if len(values) == 0 {
+				return nil, status.Error(codes.InvalidArgument, "no signature")
+			}
+			signature = values[0]
+			if signature == "" {
+				return nil, status.Error(codes.InvalidArgument, "signature is empty")
+			}
+			marshaled, err := json.Marshal(pbRequest)
+			if err != nil {
+				return nil, err
+			}
+			if !IsValid(signature, marshaled, secretKey) {
+				return nil, status.Error(codes.InvalidArgument, "signature is wrong")
+			}
+		}
+		return handler(ctx, req)
+	}
 }

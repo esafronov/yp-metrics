@@ -20,6 +20,8 @@ type AppParams struct {
 	CryptoKey            *string `env:"CRYPTO_KEY" json:"crypto_key"`         //Full filepath to RSA private key
 	Config               *string `env:"CONFIG" json:"-"`                      //filepath to config file
 	TrustedSubnet        *string `env:"TRUSTED_SUBNET" json:"trusted_subnet"` //trusted subnet
+	UseGRPC              *bool   `env:"USE_GRPC"`                             //run gRPC server instead of http server if true, run http server by default
+	CryptoCert           *string `env:"CRYPTO_CERT"`                          //server sertificate
 }
 
 var Params *AppParams = &AppParams{}
@@ -40,7 +42,9 @@ var secretKeyFlag *string
 var profileServerAddressFlag *string
 var cryptoKeyFlag *string
 var trustedSubnetFlag *string
+var useGRPCFlag *bool
 var configFlag *string
+var cryptoCertFlag *string
 
 func parseFlags() {
 	serverAddressFlag = flag.String("a", "localhost:8080", "address and port to run server")
@@ -52,6 +56,8 @@ func parseFlags() {
 	profileServerAddressFlag = flag.String("ad", "", "profile server address to listen")
 	cryptoKeyFlag = flag.String("crypto-key", "", "Full filepath to RSA private key")
 	trustedSubnetFlag = flag.String("t", "", "Trusted subnet")
+	useGRPCFlag = flag.Bool("g", false, "Run gRPC server instead of http server")
+	cryptoCertFlag = flag.String("s", "", "Full filepath to RSA certificate (using it for )")
 	configFlag = flag.String("config", "", "filepath to config file")
 	flag.StringVar(configFlag, "c", *configFlag, "alias for -config")
 	flag.Parse()
@@ -84,6 +90,12 @@ func SetFlags() {
 	}
 	if Params.TrustedSubnet == nil {
 		Params.TrustedSubnet = trustedSubnetFlag
+	}
+	if Params.UseGRPC == nil {
+		Params.UseGRPC = useGRPCFlag
+	}
+	if Params.CryptoCert == nil {
+		Params.CryptoCert = cryptoCertFlag
 	}
 	if Params.Config == nil {
 		Params.Config = configFlag

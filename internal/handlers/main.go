@@ -190,7 +190,7 @@ func (h APIHandler) UpdateJSON(res http.ResponseWriter, req *http.Request) {
 		case storage.MetricTypeCounter:
 			metric = storage.NewMetricCounter(value)
 		default:
-			logger.Log.Error("unknown metric type", zap.Error(err))
+			logger.Log.Error(ErrMetricType.Error(), zap.Error(ErrMetricType))
 			http.Error(res, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
