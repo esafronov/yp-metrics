@@ -142,7 +142,6 @@ func Run() {
 	if *params.UseGRPC {
 		var creds credentials.TransportCredentials
 		if *params.CryptoKey != "" {
-			fmt.Println("CryptoKey", *params.CryptoKey)
 			// Create tls based credential.
 			creds, err = credentials.NewClientTLSFromFile(*params.CryptoKey, "")
 			if err != nil {

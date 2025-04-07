@@ -6,16 +6,29 @@ option go_package = "github.com/esafronov/yp-metrics/internal/grpc/proto";
 
 message ListRequest {}
 
+enum MetricType {
+  UNSPECIFIED = 0;
+  GAUGE = 1;
+  COUNTER = 2;
+}
+
+message MetricId {
+  string id = 1; 
+}
+
+message MetricValue {
+  double value = 1;
+}
+
+message MetricDelta {
+  int64 delta = 1;
+}
+
 message Metric {
-  string id = 1;
-  enum Type {
-    UNSPECIFIED = 0;
-    GAUGE = 1;
-    COUNTER = 2;
-  }
-  Type type = 2;
-  double value = 3;
-  int64 delta = 4;
+  MetricId id = 1;
+  MetricType type = 2;
+  MetricValue value = 3;
+  MetricDelta delta = 4;
 }
 
 message PingRequest {}
@@ -37,7 +50,7 @@ message BatchUpdateRequest {
 message BatchUpdateResponse {}
 
 message GetRequest {
-  string name = 1;
+  MetricId id = 1;
 }
 
 message GetResponse {

@@ -70,17 +70,23 @@ func (s *MetricsServer) List(req *pb.ListRequest, stream pb.Metrics_ListServer) 
 	}
 	for metricName, m := range metrics {
 		var pbMetric = &pb.Metric{
-			Id: string(metricName),
+			Id: &pb.MetricId{
+				Id: string(metricName),
+			},
 		}
 		switch tm := m.(type) {
 		case *storage.MetricCounter:
-			pbMetric.Type = pb.Metric_COUNTER
+			pbMetric.Type = pb.MetricType_COUNTER
 			val, _ := tm.GetValue().(int64)
-			pbMetric.Delta = val
+			pbMetric.Delta = &pb.MetricDelta{
+				Delta: val,
+			}
 		case *storage.MetricGauge:
-			pbMetric.Type = pb.Metric_GAUGE
+			pbMetric.Type = pb.MetricType_GAUGE
 			val, _ := tm.GetValue().(float64)
-			pbMetric.Value = val
+			pbMetric.Value = &pb.MetricValue{
+				Value: val,
+			}
 		default:
 			return status.Errorf(codes.Internal, "type of metric is unknown")
 		}
@@ -94,10 +100,10 @@ func (s *MetricsServer) List(req *pb.ListRequest, stream pb.Metrics_ListServer) 
 
 func (s *MetricsServer) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
 	res := &pb.GetResponse{}
-	if req.Name == "" {
+	if req.Id.Id == "" {
 		return nil, status.Errorf(codes.NotFound, "metric is not found")
 	}
-	metricName := storage.MetricName(req.Name)
+	metricName := storage.MetricName(req.Id.Id)
 	m, err := s.Storage.Get(ctx, metricName)
 	if err != nil {
 		logger.Log.Error("get metric", zap.Error(err))
@@ -107,17 +113,19 @@ func (s *MetricsServer) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetRes
 		return nil, status.Errorf(codes.NotFound, "metric is not found")
 	}
 	var pbMetric = &pb.Metric{
-		Id: string(metricName),
+		Id: &pb.MetricId{
+			Id: string(metricName),
+		},
 	}
 	switch tm := m.(type) {
 	case *storage.MetricCounter:
-		pbMetric.Type = pb.Metric_COUNTER
+		pbMetric.Type = pb.MetricType_COUNTER
 		val, _ := tm.GetValue().(int64)
-		pbMetric.Delta = val
+		pbMetric.Delta = &pb.MetricDelta{Delta: val}
 	case *storage.MetricGauge:
-		pbMetric.Type = pb.Metric_GAUGE
+		pbMetric.Type = pb.MetricType_GAUGE
 		val, _ := tm.GetValue().(float64)
-		pbMetric.Value = val
+		pbMetric.Value = &pb.MetricValue{Value: val}
 	default:
 		return nil, status.Errorf(codes.Internal, "type of metric is unknown")
 	}
@@ -126,7 +134,7 @@ func (s *MetricsServer) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetRes
 }
 
 func (s *MetricsServer) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.UpdateResponse, error) {
-	metricName := storage.MetricName(req.Metric.Id)
+	metricName := storage.MetricName(req.Metric.Id.Id)
 	if metricName == "" {
 		return nil, status.Errorf(codes.NotFound, "metric is not found")
 	}
@@ -136,17 +144,9 @@ func (s *MetricsServer) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.
 	}
 	var value any
 	switch req.Metric.Type {
-	case pb.Metric_COUNTER:
-		/*		if req.Metric.Delta == nil {
-					return nil, status.Errorf(codes.Internal, "metric delta is nil")
-				}
-		*/
+	case pb.MetricType_COUNTER:
 		value = req.Metric.GetDelta()
-	case pb.Metric_GAUGE:
-		/*		if req.Metric.Delta == nil {
-					return nil, status.Errorf(codes.Internal, "metric value is nil")
-				}
-		*/
+	case pb.MetricType_GAUGE:
 		value = req.Metric.GetValue()
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "metric type is wrong %s", req.Metric.Type)
@@ -159,9 +159,9 @@ func (s *MetricsServer) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.
 		}
 	} else {
 		switch req.Metric.Type {
-		case pb.Metric_COUNTER:
+		case pb.MetricType_COUNTER:
 			m = storage.NewMetricCounter(value)
-		case pb.Metric_GAUGE:
+		case pb.MetricType_GAUGE:
 			m = storage.NewMetricGauge(value)
 		default:
 			err = errors.New("unknown metric type")
@@ -177,9 +177,9 @@ func (s *MetricsServer) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.
 	res := &pb.UpdateResponse{
 		Metric: req.Metric,
 	}
-	if req.Metric.Type == pb.Metric_COUNTER {
+	if req.Metric.Type == pb.MetricType_COUNTER {
 		val, _ := m.GetValue().(int64)
-		res.Metric.Delta = val
+		res.Metric.Delta = &pb.MetricDelta{Delta: val}
 	}
 	return res, nil
 }
@@ -190,19 +190,19 @@ func (s *MetricsServer) BatchUpdate(ctx context.Context, req *pb.BatchUpdateRequ
 		var metricType storage.MetricType
 		var val any
 		switch m.Type {
-		case pb.Metric_COUNTER:
+		case pb.MetricType_COUNTER:
 			metricType = storage.MetricTypeCounter
-			val = m.Delta
-		case pb.Metric_GAUGE:
+			val = m.Delta.Delta
+		case pb.MetricType_GAUGE:
 			metricType = storage.MetricTypeGauge
-			val = m.Value
+			val = m.Value.Value
 		default:
 			err := errors.New("unknown metric type")
 			logger.Log.Error(err.Error(), zap.Error(err))
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
 		m := storage.Metrics{
-			ID:          m.Id,
+			ID:          m.Id.Id,
 			MType:       string(metricType),
 			ActualValue: val,
 		}

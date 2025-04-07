@@ -212,23 +212,23 @@ func (a *Agent) sendMetric(ctx context.Context, m *storage.Metrics) error {
 // Send metric by grpc client (internal worker function)
 func (a *Agent) sendMetricGRPC(ctx context.Context, m *storage.Metrics) error {
 	pbMetric := &pb.Metric{
-		Id: m.ID,
+		Id: &pb.MetricId{Id: m.ID},
 	}
 	switch storage.MetricType(m.MType) {
 	case storage.MetricTypeCounter:
-		pbMetric.Type = pb.Metric_COUNTER
+		pbMetric.Type = pb.MetricType_COUNTER
 		value, ok := m.ActualValue.(int64)
 		if !ok {
 			return fmt.Errorf("error type assertion, assuming int64")
 		}
-		pbMetric.Delta = value
+		pbMetric.Delta.Delta = value
 	case storage.MetricTypeGauge:
-		pbMetric.Type = pb.Metric_GAUGE
+		pbMetric.Type = pb.MetricType_GAUGE
 		value, ok := m.ActualValue.(float64)
 		if !ok {
 			return fmt.Errorf("error type assertion, assuming float64")
 		}
-		pbMetric.Value = value
+		pbMetric.Value.Value = value
 	default:
 		return fmt.Errorf("metric type is unknown: %s", m.MType)
 	}
@@ -251,23 +251,29 @@ func (a *Agent) sendReportInBatchGRPC(ctx context.Context) error {
 	}
 	for metricName, v := range items {
 		pbMetric := &pb.Metric{
-			Id: string(metricName),
+			Id: &pb.MetricId{
+				Id: string(metricName),
+			},
 		}
 		switch v.GetValue().(type) {
 		case int64:
-			pbMetric.Type = pb.Metric_COUNTER
+			pbMetric.Type = pb.MetricType_COUNTER
 			value, ok := v.GetValue().(int64)
 			if !ok {
 				return fmt.Errorf("error type assertion, assuming int64")
 			}
-			pbMetric.Delta = value
+			pbMetric.Delta = &pb.MetricDelta{
+				Delta: value,
+			}
 		case float64:
-			pbMetric.Type = pb.Metric_GAUGE
+			pbMetric.Type = pb.MetricType_GAUGE
 			value, ok := v.GetValue().(float64)
 			if !ok {
 				return fmt.Errorf("error type assertion, assuming float64")
 			}
-			pbMetric.Value = value
+			pbMetric.Value = &pb.MetricValue{
+				Value: value,
+			}
 		default:
 			return fmt.Errorf("unknown metric type")
 		}
