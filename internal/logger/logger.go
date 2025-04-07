@@ -2,6 +2,7 @@
 package logger
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 var Log *zap.Logger = zap.NewNop()
@@ -87,4 +89,16 @@ func (w *LoggerResponseWriter) Header() http.Header {
 func (w *LoggerResponseWriter) WriteHeader(statusCode int) {
 	w.rw.WriteHeader(statusCode)
 	w.data.status = statusCode
+}
+
+// UnaryLoggerInterceptor is the interceptor for gRPC server for logging remote calls
+func UnaryLoggerInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	timeStamp := time.Now()
+	res, err := handler(ctx, req)
+	duration := time.Since(timeStamp).Milliseconds()
+	Log.Info("request",
+		zap.String("method", info.FullMethod),
+		zap.Int64("duration", duration),
+	)
+	return res, err
 }

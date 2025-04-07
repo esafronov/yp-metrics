@@ -18,6 +18,7 @@ type AppParams struct {
 	ProfileServerAddress *string `env:"PROFILE_SERVER_ADDRESS" json:"-"`        //profile server address to run
 	CryptoKey            *string `env:"CRYPTO_KEY" json:"crypto_key"`           //filepath to RSA public key
 	Config               *string `env:"CONFIG" json:"-"`                        //filepath to config file
+	UseGRPC              *bool   `env:"USE_GRPC"`                               //use gRPC client to send metrics (http client by default)
 }
 
 var Params *AppParams = &AppParams{}
@@ -49,6 +50,7 @@ var rateLimitFlag *int
 var profileServerAddressFlag *string
 var cryptoKeyFlag *string
 var configFlag *string
+var useGRPCFlag *bool
 
 func parseFlags() {
 	serverAddressFlag = flag.String("a", "localhost:8080", "address and port to send reports")
@@ -58,6 +60,7 @@ func parseFlags() {
 	rateLimitFlag = flag.Int("l", 0, "max parallel request limit, 0 = send in batch")
 	profileServerAddressFlag = flag.String("ad", "", "profile server address to listen")
 	cryptoKeyFlag = flag.String("crypto-key", "", "Full filepath to RSA private key")
+	useGRPCFlag = flag.Bool("g", false, "Use gRPC client to send metrics")
 	configFlag = flag.String("config", "", "filepath to config file")
 	flag.StringVar(configFlag, "c", *configFlag, "alias for -config")
 	flag.Parse()
@@ -90,6 +93,9 @@ func SetFlags() {
 	}
 	if Params.CryptoKey == nil {
 		Params.CryptoKey = cryptoKeyFlag
+	}
+	if Params.UseGRPC == nil {
+		Params.UseGRPC = useGRPCFlag
 	}
 	if Params.Config == nil {
 		Params.Config = configFlag

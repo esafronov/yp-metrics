@@ -6,6 +6,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -22,6 +23,12 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+
+	// импортируем пакет со сгенерированными protobuf-файлами
+	pb "github.com/esafronov/yp-metrics/internal/grpc/proto"
 )
 
 type Agent struct {
@@ -35,6 +42,7 @@ type Agent struct {
 	memStats      runtime.MemStats
 	secretKey     string
 	cryptoKey     string
+	metricsClient pb.MetricsClient
 }
 
 // NewAgent is fabric method
@@ -68,21 +76,34 @@ func OptionWithCryptoKey(cryptoKey string) func(a *Agent) {
 	}
 }
 
+// OptionWithMemReadFunc option function to configure Agent to use MemReadFunc
 func OptionWithMemReadFunc(memReadFunc func(m *runtime.MemStats)) func(a *Agent) {
 	return func(a *Agent) {
 		a.memReadFunc = memReadFunc
 	}
 }
 
+// OptionWithVMemReadFunc option function to configure Agent to use MemReadFunc
 func OptionWithVMemReadFunc(vmemReadFunc func() (*mem.VirtualMemoryStat, error)) func(a *Agent) {
 	return func(a *Agent) {
 		a.vmemReadFunc = vmemReadFunc
 	}
 }
 
+// OptionWithCpuReadFunc option function to configure Agent to use CpuReadFunc
 func OptionWithCpuReadFunc(cpuReadFunc func(interval time.Duration, percpu bool) ([]float64, error)) func(a *Agent) {
 	return func(a *Agent) {
 		a.cpuReadFunc = cpuReadFunc
+	}
+}
+
+// OptionWithMetricsClient option function to configure Agent to use metricsClient
+func OptionWithMetricsClient(client pb.MetricsClient) func(a *Agent) {
+	return func(a *Agent) {
+		if client == nil {
+			return
+		}
+		a.metricsClient = client
 	}
 }
 
@@ -105,6 +126,7 @@ func Run() {
 		zap.String("ProfileServerAddress", *params.ProfileServerAddress),
 		zap.String("SecretKey", *params.SecretKey),
 		zap.String("CryptoKey", *params.CryptoKey),
+		zap.Bool("UseGRPC", *params.UseGRPC),
 		zap.String("Config", *params.Config),
 	)
 	//run profile server if env/flag is set
@@ -116,6 +138,27 @@ func Run() {
 	if params.Address == nil {
 		panic("serverAddress is nil")
 	}
+	var metricsClient pb.MetricsClient
+	if *params.UseGRPC {
+		var creds credentials.TransportCredentials
+		if *params.CryptoKey != "" {
+			// Create tls based credential.
+			creds, err = credentials.NewClientTLSFromFile(*params.CryptoKey, "")
+			if err != nil {
+				log.Fatalf("failed to load credentials: %v", err)
+				return
+			}
+		} else {
+			creds = insecure.NewCredentials()
+		}
+		conn, err := grpc.NewClient(*params.Address, grpc.WithTransportCredentials(creds))
+		if err != nil {
+			fmt.Println("can't establish connection to grpc server", err)
+			return
+		}
+		metricsClient = pb.NewMetricsClient(conn)
+		defer conn.Close()
+	}
 	a := NewAgent(
 		storage.NewMemStorage(),
 		"http://"+*params.Address,
@@ -124,6 +167,7 @@ func Run() {
 		OptionWithCpuReadFunc(cpu.Percent),
 		OptionWithMemReadFunc(runtime.ReadMemStats),
 		OptionWithVMemReadFunc(mem.VirtualMemory),
+		OptionWithMetricsClient(metricsClient),
 	)
 	ctx, cancel := context.WithCancel(context.Background())
 	if params.PollInterval == nil {

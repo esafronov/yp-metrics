@@ -10,15 +10,18 @@ import (
 )
 
 type AppParams struct {
-	Address              *string `env:"ADDRESS" json:"address"`              //server address to listen
-	StoreInterval        *int    `env:"STORE_INTERVAL" json:"restore"`       //store interval
-	FileStoragePath      *string `env:"FILE_STORAGE_PATH" json:"store_file"` //file storage path
-	Restore              *bool   `env:"RESTORE"`                             //restore or not data on start
-	DatabaseDsn          *string `env:"DATABASE_DSN" json:"database_dsn"`    //db connection dsn
-	SecretKey            *string `env:"KEY"`                                 //secret key for signature check
-	ProfileServerAddress *string `env:"PROFILE_SERVER_ADDRESS"`              //profile serveraddress to listen
-	CryptoKey            *string `env:"CRYPTO_KEY" json:"crypto_key"`        //Full filepath to RSA private key
-	Config               *string `env:"CONFIG" json:"-"`                     //filepath to config file
+	Address              *string `env:"ADDRESS" json:"address"`               //server address to listen
+	StoreInterval        *int    `env:"STORE_INTERVAL" json:"restore"`        //store interval
+	FileStoragePath      *string `env:"FILE_STORAGE_PATH" json:"store_file"`  //file storage path
+	Restore              *bool   `env:"RESTORE"`                              //restore or not data on start
+	DatabaseDsn          *string `env:"DATABASE_DSN" json:"database_dsn"`     //db connection dsn
+	SecretKey            *string `env:"KEY"`                                  //secret key for signature check
+	ProfileServerAddress *string `env:"PROFILE_SERVER_ADDRESS"`               //profile serveraddress to listen
+	CryptoKey            *string `env:"CRYPTO_KEY" json:"crypto_key"`         //Full filepath to RSA private key
+	Config               *string `env:"CONFIG" json:"-"`                      //filepath to config file
+	TrustedSubnet        *string `env:"TRUSTED_SUBNET" json:"trusted_subnet"` //trusted subnet
+	UseGRPC              *bool   `env:"USE_GRPC"`                             //run gRPC server instead of http server if true, run http server by default
+	CryptoCert           *string `env:"CRYPTO_CERT"`                          //server sertificate
 }
 
 var Params *AppParams = &AppParams{}
@@ -38,7 +41,10 @@ var databaseDsnFlag *string
 var secretKeyFlag *string
 var profileServerAddressFlag *string
 var cryptoKeyFlag *string
+var trustedSubnetFlag *string
+var useGRPCFlag *bool
 var configFlag *string
+var cryptoCertFlag *string
 
 func parseFlags() {
 	serverAddressFlag = flag.String("a", "localhost:8080", "address and port to run server")
@@ -49,6 +55,9 @@ func parseFlags() {
 	secretKeyFlag = flag.String("k", "", "secret key for signature check")
 	profileServerAddressFlag = flag.String("ad", "", "profile server address to listen")
 	cryptoKeyFlag = flag.String("crypto-key", "", "Full filepath to RSA private key")
+	trustedSubnetFlag = flag.String("t", "", "Trusted subnet")
+	useGRPCFlag = flag.Bool("g", false, "Run gRPC server instead of http server")
+	cryptoCertFlag = flag.String("s", "", "Full filepath to RSA certificate (using it for )")
 	configFlag = flag.String("config", "", "filepath to config file")
 	flag.StringVar(configFlag, "c", *configFlag, "alias for -config")
 	flag.Parse()
@@ -78,6 +87,15 @@ func SetFlags() {
 	}
 	if Params.CryptoKey == nil {
 		Params.CryptoKey = cryptoKeyFlag
+	}
+	if Params.TrustedSubnet == nil {
+		Params.TrustedSubnet = trustedSubnetFlag
+	}
+	if Params.UseGRPC == nil {
+		Params.UseGRPC = useGRPCFlag
+	}
+	if Params.CryptoCert == nil {
+		Params.CryptoCert = cryptoCertFlag
 	}
 	if Params.Config == nil {
 		Params.Config = configFlag

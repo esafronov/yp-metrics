@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "github.com/esafronov/yp-metrics/internal/grpc/proto";
+
+message ListRequest {}
+
+enum MetricType {
+  UNSPECIFIED = 0;
+  GAUGE = 1;
+  COUNTER = 2;
+}
+
+message MetricId {
+  string id = 1; 
+}
+
+message MetricValue {
+  double value = 1;
+}
+
+message MetricDelta {
+  int64 delta = 1;
+}
+
+message Metric {
+  MetricId id = 1;
+  MetricType type = 2;
+  MetricValue value = 3;
+  MetricDelta delta = 4;
+}
+
+message PingRequest {}
+
+message PingResponse {}
+
+message UpdateRequest {
+  Metric metric = 1;
+}
+
+message UpdateResponse {
+  Metric metric = 1;
+}
+
+message BatchUpdateRequest {
+  repeated Metric metric = 1; 
+}
+
+message BatchUpdateResponse {}
+
+message GetRequest {
+  MetricId id = 1;
+}
+
+message GetResponse {
+  Metric metric = 1;
+}
+
+service Metrics {
+  rpc List(ListRequest) returns (stream Metric);
+  rpc Ping(PingRequest) returns (PingResponse);
+  rpc Update(UpdateRequest) returns (UpdateResponse);
+  rpc BatchUpdate(BatchUpdateRequest) returns (BatchUpdateResponse);
+  rpc Get(GetRequest) returns (GetResponse);
+}
